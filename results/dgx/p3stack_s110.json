@@ -1,0 +1,13 @@
+{
+ "tag": "p3stack_s110",
+ "files": [
+  "tq_s110_raw_w512.npz",
+  "tq_s110_raw_w2000.npz"
+ ],
+ "missing": [],
+ "outputs": [
+  "crossfit_raw_s110.json",
+  "crossfit_raw_split1_s110.json",
+  "frontier_raw_s110.json"
+ ]
+}

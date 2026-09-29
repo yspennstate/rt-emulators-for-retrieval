@@ -1,0 +1,18 @@
+{
+ "tag": "p3stack_lrtc",
+ "files": [
+  "lrtc_s103_w512.npz",
+  "lrtc_s104_w512.npz",
+  "lrtc_s105_w512.npz",
+  "lrtc_s106_w512.npz",
+  "lrtc_s107_w512.npz",
+  "lrtc_s108_w512.npz",
+  "lrtc_s109_w512.npz",
+  "lrtc_s110_w512.npz"
+ ],
+ "missing": [],
+ "outputs": [
+  "crossfit_lrtc.json",
+  "frontier_lrtc.json"
+ ]
+}

@@ -1,0 +1,28 @@
+{
+ "data": "libRadtran thirteen Sentinel-2 bands (9,722 states)",
+ "entries": 126385,
+ "T_median": 0.719309307394745,
+ "floors": {
+  "0.1": {
+   "floored": 0.10307259687333833,
+   "share_of_weight_on_B10": 0.8622744861551834,
+   "floored_without_B10": 0.5379993017716965,
+   "P(t<=tau)": 0.07691577323258299,
+   "B10_share_of_entries": 0.07691577323258299
+  },
+  "0.01": {
+   "floored": 0.07624411413028485,
+   "share_of_weight_on_B10": 0.9983742421441851,
+   "floored_without_B10": 0.5379993017716966,
+   "P(t<=tau)": 0.0740040352889979,
+   "B10_share_of_entries": 0.07691577323258299
+  },
+  "0.001": {
+   "floored": 0.0664904582933906,
+   "share_of_weight_on_B10": 0.9999811603066412,
+   "floored_without_B10": 0.5379993017716965,
+   "P(t<=tau)": 0.0626102781184476,
+   "B10_share_of_entries": 0.07691577323258299
+  }
+ }
+}

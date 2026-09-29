@@ -1,0 +1,146 @@
+{
+ "seed": 101,
+ "T_train": 4.672117018882113,
+ "arms": {
+  "cut-w1_u0.01": {
+   "1e-12": {
+    "p95_failures_infinite": null,
+    "p95_survivors": 3.248164942197549,
+    "failed_pct": 5.626899724847832,
+    "above_5_points_pct": 9.185534424340734
+   },
+   "0.001": {
+    "p95_failures_infinite": 3.255100649372025,
+    "p95_survivors": 2.6140069719249013,
+    "failed_pct": 1.0493835092746677,
+    "above_5_points_pct": 3.779419040214856
+   },
+   "0.01": {
+    "p95_failures_infinite": 1.9801325238509933,
+    "p95_survivors": 1.9801325238509933,
+    "failed_pct": 0.0,
+    "above_5_points_pct": 1.1681190152745105
+   }
+  },
+  "mix0.2_u0.01": {
+   "1e-12": {
+    "p95_failures_infinite": 39.480905390187296,
+    "p95_survivors": 7.9294019953575505,
+    "failed_pct": 2.362670264616038,
+    "above_5_points_pct": 8.45012772214937
+   },
+   "0.001": {
+    "p95_failures_infinite": 2.9912324356371753,
+    "p95_survivors": 2.972878846641458,
+    "failed_pct": 0.02730678043420993,
+    "above_5_points_pct": 3.1089572664949015
+   },
+   "0.01": {
+    "p95_failures_infinite": 1.8830454707857607,
+    "p95_survivors": 1.8829716783011954,
+    "failed_pct": 0.00016566714157913918,
+    "above_5_points_pct": 1.1921407508034856
+   }
+  },
+  "plain": {
+   "1e-12": {
+    "p95_failures_infinite": 54.78671714627333,
+    "p95_survivors": 9.24233754293287,
+    "failed_pct": 2.5946167198526457,
+    "above_5_points_pct": 8.893099971954186
+   },
+   "0.001": {
+    "p95_failures_infinite": 3.2285050167373486,
+    "p95_survivors": 3.152988132878943,
+    "failed_pct": 0.09653750024094218,
+    "above_5_points_pct": 3.543938215999846
+   },
+   "0.01": {
+    "p95_failures_infinite": 1.8755119581251603,
+    "p95_survivors": 1.874977469625165,
+    "failed_pct": 0.001822338557370531,
+    "above_5_points_pct": 1.4051886948742587
+   }
+  },
+  "w1_u0.001": {
+   "1e-12": {
+    "p95_failures_infinite": 66.49915541756924,
+    "p95_survivors": 34.68959583854812,
+    "failed_pct": 2.148006094279412,
+    "above_5_points_pct": 17.991464976843254
+   },
+   "0.001": {
+    "p95_failures_infinite": 17.976886432679798,
+    "p95_survivors": 17.971869834371294,
+    "failed_pct": 0.0009637687212074094,
+    "above_5_points_pct": 13.328439529937869
+   },
+   "0.01": {
+    "p95_failures_infinite": 14.779518834688862,
+    "p95_survivors": 14.779192957657875,
+    "failed_pct": 0.00016566714157913918,
+    "above_5_points_pct": 11.500281634140684
+   }
+  },
+  "w1_u0.01": {
+   "1e-12": {
+    "p95_failures_infinite": 29.93428745589184,
+    "p95_survivors": 7.241469016747308,
+    "failed_pct": 2.2209252086381106,
+    "above_5_points_pct": 8.204234159800496
+   },
+   "0.001": {
+    "p95_failures_infinite": 3.2657098893234204,
+    "p95_survivors": 3.264493249133018,
+    "failed_pct": 0.003051934283823463,
+    "above_5_points_pct": 2.924877440744287
+   },
+   "0.01": {
+    "p95_failures_infinite": 2.484576392415007,
+    "p95_survivors": 2.484576392415007,
+    "failed_pct": 0.0,
+    "above_5_points_pct": 1.5851032106292038
+   }
+  },
+  "w1_u0.01_sp": {
+   "1e-12": {
+    "p95_failures_infinite": 29.925421874634463,
+    "p95_survivors": 7.206190239264439,
+    "failed_pct": 2.2272923662328408,
+    "above_5_points_pct": 8.208175733549615
+   },
+   "0.001": {
+    "p95_failures_infinite": 3.2725080160666717,
+    "p95_survivors": 3.2714654699576475,
+    "failed_pct": 0.0025700499232197585,
+    "above_5_points_pct": 2.9304994249513294
+   },
+   "0.01": {
+    "p95_failures_infinite": 2.4824635534594073,
+    "p95_survivors": 2.4824635534594073,
+    "failed_pct": 0.0,
+    "above_5_points_pct": 1.594711904840794
+   }
+  },
+  "w1_u0.1": {
+   "1e-12": {
+    "p95_failures_infinite": 41.40637418379888,
+    "p95_survivors": 7.60840048594387,
+    "failed_pct": 2.3212837402502897,
+    "above_5_points_pct": 8.01867699561121
+   },
+   "0.001": {
+    "p95_failures_infinite": 2.18739770788621,
+    "p95_survivors": 2.1669598772782646,
+    "failed_pct": 0.038390120728095146,
+    "above_5_points_pct": 2.643938858512327
+   },
+   "0.01": {
+    "p95_failures_infinite": 1.2995972466276149,
+    "p95_survivors": 1.2995972466276149,
+    "failed_pct": 0.0,
+    "above_5_points_pct": 0.690334978960273
+   }
+  }
+ }
+}

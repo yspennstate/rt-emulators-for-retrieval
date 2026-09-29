@@ -1,0 +1,283 @@
+{
+ "seed": 101,
+ "T_train": 4.672117018882113,
+ "K": 32,
+ "delta": 0.05,
+ "dropped_rows": [
+  4011,
+  7439
+ ],
+ "blocks": {
+  "validation": {
+   "m": 2098,
+   "B": 285,
+   "weights": {
+    "floored u=0.1": {
+     "entry_fraction": 0.24817230315650524,
+     "state_fraction": 0.913883543447932,
+     "band_factor": 0.2715579079367073,
+     "identity_check": 1.3877787807814457e-16,
+     "bands_for_90pct": 76,
+     "heaviest_bands": [
+      196,
+      197,
+      198,
+      199,
+      200,
+      201,
+      204,
+      205
+     ],
+     "weight_share_below_floor": 0.7581866148283882,
+     "m_eff": 1917.3276741537613,
+     "max_over_mean": 1.8253127989456641,
+     "bound_over_L_Eomega": 0.1810782009034219
+    },
+    "floored u=0.01": {
+     "entry_fraction": 0.10896390925381999,
+     "state_fraction": 0.8402884429733132,
+     "band_factor": 0.12967441140598976,
+     "identity_check": 1.3877787807814457e-17,
+     "bands_for_90pct": 36,
+     "heaviest_bands": [
+      196,
+      197,
+      198,
+      199,
+      200,
+      201,
+      204,
+      205
+     ],
+     "weight_share_below_floor": 0.8986167974349137,
+     "m_eff": 1762.9251533580111,
+     "max_over_mean": 2.081247247865418,
+     "bound_over_L_Eomega": 0.18964937853702982
+    },
+    "floored u=0.001": {
+     "entry_fraction": 0.0719393873129482,
+     "state_fraction": 0.7525336501363216,
+     "band_factor": 0.0955962398490969,
+     "identity_check": 2.7755575615628914e-17,
+     "bands_for_90pct": 27,
+     "heaviest_bands": [
+      196,
+      197,
+      198,
+      199,
+      200,
+      201,
+      204,
+      205
+     ],
+     "weight_share_below_floor": 0.9223266405075846,
+     "m_eff": 1578.8155979860026,
+     "max_over_mean": 2.275151356912055,
+     "bound_over_L_Eomega": 0.20074739142251818
+    },
+    "cut u=0.1": {
+     "entry_fraction": 0.13535273130054756,
+     "state_fraction": 0.9353868938904021,
+     "band_factor": 0.14470240302127504,
+     "identity_check": 2.7755575615628914e-17,
+     "bands_for_90pct": 96,
+     "heaviest_bands": [
+      220,
+      264,
+      265,
+      266,
+      267,
+      268,
+      269,
+      270
+     ],
+     "weight_share_below_floor": 0.0,
+     "m_eff": 1962.4417033820637,
+     "max_over_mean": 2.5874216848441915,
+     "bound_over_L_Eomega": 0.18254594014630426
+    },
+    "cut u=0.01": {
+     "entry_fraction": 0.02428828236648314,
+     "state_fraction": 0.872870447476388,
+     "band_factor": 0.027825758606795047,
+     "identity_check": 6.938893903907228e-18,
+     "bands_for_90pct": 50,
+     "heaviest_bands": [
+      131,
+      191,
+      210,
+      211,
+      212,
+      278,
+      283,
+      284
+     ],
+     "weight_share_below_floor": 0.0,
+     "m_eff": 1831.282198805462,
+     "max_over_mean": 2.886626384877134,
+     "bound_over_L_Eomega": 0.18991646887646596
+    },
+    "cut u=0.001": {
+     "entry_fraction": 0.011364593379295103,
+     "state_fraction": 0.7813076672074359,
+     "band_factor": 0.014545605855775919,
+     "identity_check": 0.0,
+     "bands_for_90pct": 36,
+     "heaviest_bands": [
+      131,
+      132,
+      139,
+      192,
+      195,
+      208,
+      209,
+      210
+     ],
+     "weight_share_below_floor": 0.0,
+     "m_eff": 1639.1834858012005,
+     "max_over_mean": 2.962793464208903,
+     "bound_over_L_Eomega": 0.20033510008944422
+    }
+   },
+   "bound_unweighted_over_L_Eomega": 0.16971855132986763
+  },
+  "training": {
+   "m": 18882,
+   "B": 285,
+   "weights": {
+    "floored u=0.1": {
+     "entry_fraction": 0.24471076044430012,
+     "state_fraction": 0.9090489807900454,
+     "band_factor": 0.26919425203207903,
+     "identity_check": 8.326672684688674e-17,
+     "bands_for_90pct": 76,
+     "heaviest_bands": [
+      196,
+      197,
+      198,
+      199,
+      200,
+      201,
+      204,
+      205
+     ],
+     "weight_share_below_floor": 0.7570063837186356
+    },
+    "floored u=0.01": {
+     "entry_fraction": 0.10700390421749537,
+     "state_fraction": 0.8303207559398608,
+     "band_factor": 0.12887056411877235,
+     "identity_check": 1.3877787807814457e-17,
+     "bands_for_90pct": 36,
+     "heaviest_bands": [
+      196,
+      197,
+      198,
+      199,
+      200,
+      201,
+      204,
+      205
+     ],
+     "weight_share_below_floor": 0.8968990860015715
+    },
+    "floored u=0.001": {
+     "entry_fraction": 0.07007191162551632,
+     "state_fraction": 0.7348016026886719,
+     "band_factor": 0.09536167500059886,
+     "identity_check": 1.3877787807814457e-17,
+     "bands_for_90pct": 27,
+     "heaviest_bands": [
+      196,
+      197,
+      198,
+      199,
+      200,
+      201,
+      204,
+      205
+     ],
+     "weight_share_below_floor": 0.9209451965866605
+    },
+    "cut u=0.1": {
+     "entry_fraction": 0.13443342778410053,
+     "state_fraction": 0.9355794001886096,
+     "band_factor": 0.14369002540778386,
+     "identity_check": 2.7755575615628914e-17,
+     "bands_for_90pct": 96,
+     "heaviest_bands": [
+      219,
+      220,
+      265,
+      267,
+      268,
+      269,
+      270,
+      271
+     ],
+     "weight_share_below_floor": 0.0
+    },
+    "cut u=0.01": {
+     "entry_fraction": 0.024113621109692937,
+     "state_fraction": 0.8720449463797202,
+     "band_factor": 0.02765180993227497,
+     "identity_check": 3.469446951953614e-18,
+     "bands_for_90pct": 51,
+     "heaviest_bands": [
+      131,
+      191,
+      209,
+      210,
+      211,
+      212,
+      282,
+      283
+     ],
+     "weight_share_below_floor": 0.0
+    },
+    "cut u=0.001": {
+     "entry_fraction": 0.01138338411978443,
+     "state_fraction": 0.7680321049374129,
+     "band_factor": 0.014821495151836216,
+     "identity_check": 1.734723475976807e-18,
+     "bands_for_90pct": 37,
+     "heaviest_bands": [
+      131,
+      132,
+      192,
+      195,
+      208,
+      209,
+      210,
+      211
+     ],
+     "weight_share_below_floor": 0.0
+    }
+   },
+   "bands_below_1e-3_per_state": {
+    "median": 18.0,
+    "share_of_states_with_none": 0.15130812413939201
+   },
+   "bands_more_than_half_below_1e-3": [
+    132,
+    133,
+    134,
+    135,
+    136,
+    195,
+    196,
+    197,
+    198,
+    199,
+    200,
+    201,
+    202,
+    203,
+    204,
+    205,
+    206,
+    207
+   ]
+  }
+ }
+}

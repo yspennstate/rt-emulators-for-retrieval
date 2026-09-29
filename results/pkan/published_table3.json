@@ -1,0 +1,14 @@
+{
+ "source": "M. A. A. Mazid and N. Rishe, Remote Sensing 18(11):1826, 2026, doi 10.3390/rs18111826 (arXiv:2605.10958), Table 3, 'Overall test accuracy on the standard split'",
+ "checked": "read from the arXiv HTML full text and from two PDF copies (MDPI, arXiv), identical in all rows",
+ "models": [
+  {"model": "pKANrtm", "rmse": 0.00619, "mae": 0.00186, "r2": 0.99472, "smape": 3.91249},
+  {"model": "sRTMNet", "rmse": 0.00691, "mae": 0.00211, "r2": 0.99418, "smape": 4.28170},
+  {"model": "DA", "rmse": 0.00784, "mae": 0.002607, "r2": 0.99351, "smape": 4.94720},
+  {"model": "GPAC", "rmse": 0.00865, "mae": 0.00301, "r2": 0.99280, "smape": 5.57940},
+  {"model": "FC", "rmse": 0.00948, "mae": 0.00342, "r2": 0.99193, "smape": 6.12680},
+  {"model": "RF", "rmse": 0.01075, "mae": 0.00404, "r2": 0.99061, "smape": 7.01850},
+  {"model": "UMR", "rmse": 0.01394, "mae": 0.00546, "r2": 0.98691, "smape": 9.84620}
+ ],
+ "ood_table4_pkanrtm": {"rmse": 0.01022, "mae": 0.00544, "r2": 0.99418, "smape": 5.39850}
+}

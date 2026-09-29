@@ -1,0 +1,256 @@
+"""The network on flattened retrieval weights, and the stopping rule separated from the training weights.
+
+p3_mixed_objective.py trains the pilot's network on the mixed weights (1 - alpha) + alpha wbar_u. In the standardized
+coordinates the network is trained in, wbar_u carries the variance of each band, and its effective fraction on the
+EMIT training block is 4e-4 for the path radiance and 8e-3 and 4e-3 for the two transmission terms at u = 1e-2
+(results/mixed_value_share.json), so even alpha = 0.05 leaves the path-radiance network an effective fraction of 0.14.
+The flattened weights wbar_u^lambda of Shimodaira (2000), renormalized to mean one on the training block, keep far more
+of the sample for the same emphasis on the heavy entries (effective fractions near 0.7 at lambda = 0.25 and 0.2 at
+lambda = 0.5). The pilot stops on the validation loss under the training weights; an arm with the suffix ':sp' trains
+on the same weights and stops on the plain validation loss, which separates the effect of the training weights from
+that of a stopping rule decided by a few heavy validation states.
+
+Arms (--arms): 'plain'; 'flat<lambda>' (wbar_u^lambda); 'mix<alpha>' ((1 - alpha) + alpha wbar_u); each weighted arm
+optionally with ':sp'. Everything else is p3_mixed_objective.py unchanged: the split, seeds, standardization,
+architecture, schedule, score() and J_u on the test block. Each arm's record carries the effective fraction of its
+training weights per component. --save-preds writes the test-block predictions of every arm (float32).
+
+usage: EMIT_DATA=<dir> python p3_flattened_weights.py --seed 101 [--arms plain flat0.25 flat0.5 mix0.2:sp flat0.25:sp]
+       [--u 1e-2] [--epochs 150] [--threads 4] [--data DIR] [--out results] [--tag TAG] [--record FILE] [--save-preds]
+"""
+import argparse
+import hashlib
+import json
+import os
+import pathlib
+import time
+
+p = argparse.ArgumentParser()
+p.add_argument("--seed", type=int, required=True)
+p.add_argument("--arms", nargs="+", default=["plain", "flat0.25", "flat0.5", "mix0.2:sp", "flat0.25:sp"])
+p.add_argument("--u", type=float, default=1e-2)
+p.add_argument("--save-preds", action="store_true")
+p.add_argument("--epochs", type=int, default=150)
+p.add_argument("--widths", default="512,512,512")
+p.add_argument("--threads", type=int, default=4)
+p.add_argument("--data", default="")
+p.add_argument("--out", default="results")
+p.add_argument("--tag", default="")
+p.add_argument("--record", default="")
+args = p.parse_args()
+for v in ("OMP_NUM_THREADS", "MKL_NUM_THREADS", "OPENBLAS_NUM_THREADS"):
+    os.environ.setdefault(v, str(args.threads))
+os.environ["CUDA_VISIBLE_DEVICES"] = ""
+import numpy as np  # noqa: E402
+import torch  # noqa: E402
+import torch.nn as nn  # noqa: E402
+
+torch.set_num_threads(args.threads)
+DATA = pathlib.Path(args.data or os.environ.get("EMIT_DATA", os.path.expanduser("~/p2/data/emit")))
+OUT = pathlib.Path(args.out)
+OUT.mkdir(parents=True, exist_ok=True)
+C = ["Y1", "Y2", "Y3", "Y4"]
+RHO, R = 0.7, 0.9
+FLOORS = (1e-12, 1e-3, 1e-2)
+WIDTHS = tuple(int(w) for w in args.widths.split(","))
+TAG = args.tag or f"p3fl_s{args.seed}"
+t0 = time.time()
+
+
+def log(msg):
+    print(f"[{(time.time() - t0) / 60:6.1f} min] {msg}", flush=True)
+
+
+# ---- data, split, standardization and weights: retrieval_weighted_pilot.py, unchanged ----
+X = np.load(DATA / "X.npy")
+Ys = {c: np.load(DATA / (c + ".npy")) for c in C}
+n_all = X.shape[0]
+perm = np.random.RandomState(args.seed).permutation(n_all)
+n_te = int(round(0.1 * n_all))
+idx_te, tr_full = perm[:n_te], perm[n_te:]
+vperm = np.random.RandomState(args.seed + 10000).permutation(len(tr_full))
+n_val = int(round(0.1 * len(tr_full)))
+idx_val, idx_tr = tr_full[vperm[:n_val]], tr_full[vperm[n_val:]]
+
+
+class Std:
+    def __init__(self, A):
+        self.mean, self.std = A.mean(0), np.sqrt(A.var(0))
+        self.std[self.std == 0] = 1.0
+
+    def fwd(self, A):
+        return (A - self.mean) / self.std
+
+    def inv(self, A):
+        return A * self.std + self.mean
+
+
+xs = Std(X[idx_tr])
+Xtr, Xva, Xte = (xs.fwd(X[i]) for i in (idx_tr, idx_val, idx_te))
+ystd = {c: Std(Ys[c][idx_tr]) for c in C}
+T = Ys["Y2"] + Ys["Y3"]
+t_tr = T[idx_tr]
+T_train = float(np.median(t_tr[t_tr > 0]))
+
+
+def weights(rows, u):
+    tau = u * T_train
+    t = T[rows]
+    den = np.maximum(t, tau) ** 2
+    w = {"Y1": 1.0 / den, "Y2": R ** 2 / den, "Y3": R ** 2 / den,
+         "Y4": R ** 4 * np.clip(t, 0, None) ** 2 / den}
+    return {c: w[c] * ystd[c].std[None, :] ** 2 for c in C}
+
+
+def build(d_in, d_out):
+    layers, prev = [], d_in
+    for wdt in WIDTHS:
+        layers += [nn.Linear(prev, wdt), nn.ELU()]
+        prev = wdt
+    layers.append(nn.Linear(prev, d_out))
+    return nn.Sequential(*layers)
+
+
+def train(c, seed, wtr, wva, patience=25):
+    """The pilot's train()."""
+    torch.manual_seed(seed)
+    ytr = torch.tensor(ystd[c].fwd(Ys[c][idx_tr]), dtype=torch.float32)
+    yva = torch.tensor(ystd[c].fwd(Ys[c][idx_val]), dtype=torch.float32)
+    xtr, xva, xte = (torch.tensor(a, dtype=torch.float32) for a in (Xtr, Xva, Xte))
+    Wtr = None if wtr is None else torch.tensor(wtr, dtype=torch.float32)
+    Wva = None if wva is None else torch.tensor(wva, dtype=torch.float32)
+
+    def loss(pred, y, w):
+        e2 = (pred - y) ** 2
+        return e2.mean() if w is None else (w * e2).mean()
+
+    model = build(xtr.shape[1], ytr.shape[1])
+    opt = torch.optim.AdamW(model.parameters(), lr=1e-3, weight_decay=1e-6)
+    sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=args.epochs, eta_min=1e-5)
+    best, best_val, bad, ep = None, np.inf, 0, 0
+    for ep in range(args.epochs):
+        model.train()
+        order = torch.randperm(len(xtr))
+        for i in range(0, len(xtr), 1024):
+            b = order[i:i + 1024]
+            opt.zero_grad()
+            loss(model(xtr[b]), ytr[b], None if Wtr is None else Wtr[b]).backward()
+            opt.step()
+        sched.step()
+        model.eval()
+        with torch.no_grad():
+            vl = loss(model(xva), yva, Wva).item()
+        if vl < best_val - 1e-9:
+            best_val, bad, best = vl, 0, {k: v.clone() for k, v in model.state_dict().items()}
+        else:
+            bad += 1
+            if bad >= patience:
+                break
+    model.load_state_dict(best)
+    model.eval()
+    with torch.no_grad():
+        return ystd[c].inv(model(xte).numpy().astype(np.float64)), ep + 1
+
+
+def score(P):
+    """The pilot's score()."""
+    Tt = {c: Ys[c][idx_te] for c in C}
+    a, t, s = Tt["Y1"], Tt["Y2"] + Tt["Y3"], Tt["Y4"]
+    ah, th, sh = P["Y1"], P["Y2"] + P["Y3"], P["Y4"]
+    L = a + RHO * t / (1 - RHO * s)
+    Lh = ah + RHO * th / (1 - RHO * sh)
+    rel = lambda A, B: float(np.mean(np.linalg.norm(A - B, axis=1) / np.linalg.norm(A, axis=1)))  # noqa: E731
+    out = {"radiance": 100 * rel(L, Lh), "components": {c: 100 * rel(Tt[c], P[c]) for c in C}}
+    u_ = L - ah
+    den = th + sh * u_
+    with np.errstate(divide="ignore", invalid="ignore"):
+        rho = u_ / den
+    err = np.abs(np.where(np.isfinite(rho), rho, 0.0) - RHO)
+    out["allband_p95"] = 100 * float(np.quantile(err, 0.95))
+    ok = np.isfinite(rho) & (den > 0)
+    for f in FLOORS:
+        dom = (t >= f * T_train) & (s >= 0) & (s < 1) & (1 - RHO * s >= 0.3)
+        good = dom & ok
+        out[f"p95@{f:g}"] = 100 * float(np.quantile(np.abs(rho[good] - RHO), 0.95))
+        out[f"failed_pct@{f:g}"] = 100 * float((dom & ~ok).sum() / max(dom.sum(), 1))
+        out[f"coverage@{f:g}"] = 100 * float(dom.mean())
+    return out
+
+
+def J_test(P, u):
+    t = np.clip(T[idx_te], 0, None)
+    e = {c: P[c] - Ys[c][idx_te] for c in C}
+    L = (e["Y1"] ** 2 + R ** 2 * (e["Y2"] ** 2 + e["Y3"] ** 2) + R ** 4 * t ** 2 * e["Y4"] ** 2) / np.maximum(t, u * T_train) ** 2
+    return float(L.mean())
+
+
+def parse_arm(spec):
+    """'plain' -> (name, None, None, False); 'flat0.25' / 'mix0.2', optionally with ':sp' -> (name, family, value, sp)."""
+    base, _, stop = spec.partition(":")
+    if stop not in ("", "sp"):
+        raise SystemExit(f"unknown stopping rule in arm {spec!r}")
+    if base == "plain":
+        if stop:
+            raise SystemExit("the plain arm already stops on the plain validation loss")
+        return "plain", None, None, False
+    for fam in ("flat", "mix"):
+        if base.startswith(fam):
+            val = float(base[len(fam):])
+            if not 0 < val <= 1:
+                raise SystemExit(f"arm {spec!r}: the parameter must lie in (0, 1]")
+            return f"{fam}{val:g}_u{args.u:g}" + ("_sp" if stop else ""), fam, val, bool(stop)
+    raise SystemExit(f"unknown arm {spec!r}")
+
+
+def kish(w):
+    w = np.asarray(w, dtype=np.float64).ravel()
+    return float(w.mean() ** 2 / (w ** 2).mean())
+
+
+arms = [parse_arm(s) for s in args.arms]
+if arms[0][0] != "plain":
+    raise SystemExit("the first arm must be 'plain', the reference of every paired difference")
+rec = {"tag": TAG, "kind": "p3_flattened_weights", "seed": args.seed, "n_train": int(len(idx_tr)),
+       "n_val": int(len(idx_val)), "n_test": int(len(idx_te)), "T_train": T_train, "widths": list(WIDTHS),
+       "epochs": args.epochs, "members": 1, "arm_specs": args.arms, "u": args.u,
+       "driver_sha256": hashlib.sha256(pathlib.Path(__file__).read_bytes()).hexdigest(), "arms": {}}
+wt_all, wv_all = weights(idx_tr, args.u), weights(idx_val, args.u)
+preds = {"idx_te": idx_te}
+for name, fam, val, sp in arms:
+    if fam is None:
+        wtr, wva = {c: None for c in C}, {c: None for c in C}
+    else:
+        wtr, wva = {}, {}
+        for c in C:
+            m = wt_all[c].mean()      # the pilot's normalization of the weights to mean one on the training block
+            bt, bv = wt_all[c] / m, wv_all[c] / m
+            if fam == "mix":
+                wtr[c], wva[c] = (1 - val) + val * bt, (1 - val) + val * bv
+            else:
+                ft, fv = bt ** val, bv ** val
+                mf = ft.mean()        # the flattened weights renormalized to mean one on the training block
+                wtr[c], wva[c] = ft / mf, fv / mf
+    P, eps = {}, {}
+    for c in C:
+        P[c], eps[c] = train(c, 1000 * args.seed, wtr[c], None if sp else wva[c])
+    rec["arms"][name] = {"family": fam, "value": val, "u": None if fam is None else args.u,
+                         "stopping": "plain validation loss" if (sp or fam is None) else "weighted validation loss",
+                         "rho_train": {c: (1.0 if wtr[c] is None else kish(wtr[c])) for c in C},
+                         "epochs_run": {c: [eps[c]] for c in C}, **score(P),
+                         "J_test": {f"u{args.u:g}": J_test(P, args.u)}}
+    if args.save_preds:
+        for c in C:
+            preds[f"{name}|{c}"] = P[c].astype(np.float32)
+    m = rec["arms"][name]
+    log(f"== {name}: rad {m['radiance']:.4f}%  allband {m['allband_p95']:.2f}  p95@1e-12 {m['p95@1e-12']:.2f}  "
+        f"p95@1e-3 {m['p95@0.001']:.2f}  p95@1e-2 {m['p95@0.01']:.2f}  J_test {m['J_test']}  "
+        f"rho {', '.join(f'{c} {v:.3g}' for c, v in m['rho_train'].items())}")
+if args.save_preds:
+    np.savez_compressed(OUT / (TAG + "_preds.npz"), **preds)
+rec["minutes"] = round((time.time() - t0) / 60, 1)
+tmp = OUT / (TAG + ".json.tmp")
+tmp.write_text(json.dumps(rec, indent=1), encoding="utf-8")
+os.replace(tmp, OUT / (TAG + ".json"))
+if args.record:
+    pathlib.Path(args.record).write_text(json.dumps(rec, indent=1), encoding="utf-8")
+log(f"done {TAG} in {rec['minutes']} min")
