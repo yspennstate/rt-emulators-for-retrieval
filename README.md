@@ -56,8 +56,16 @@ release, the error of each coefficient and the out-of-distribution split.
   out-of-distribution split, three for each ablation, three of a wider network and one of the wider network on the
   out-of-distribution split, written by `code/p3_pkan2.py`.
   `results/pkan/` holds the values the release publishes in its Table 3 and five seeds of a smaller network (four hidden
-  layers of 384 units, 80 epochs) written by `code/p3_pkan.py`. The `driver_sha256` of a record is that of the driver
-  as it ran; the published drivers differ from those in their docstrings and local paths, so their digests differ.
+  layers of 384 units, 80 epochs) written by `code/p3_pkan.py`. `results/pkan2_rescore/` and `results/dgx/p3pr_rescore/`
+  hold the principal networks of the benchmark and of the EMIT table scored at the surface reflectances 0.1, 0.4, 0.7 and
+  0.9 from their saved test predictions, with every failed inversion counted as an infinite error
+  (`code/p3_rescore_pkan.py`, `code/p3_rescore_emit.py`); `results/dgx/p3pr/` holds the EMIT networks run again to save
+  those predictions, and `code/compare_rerun.py` checks them against the runs of the paper's first table.
+  `results/dgx/members_rescore/` holds the emulators of the earlier paper on the same ten splits and test blocks, scored
+  the same way from their saved predictions without retraining (`code/p3_rescore_members.py`), and
+  `code/emit_rho_numbers.py` prints every number of the paragraphs on the EMIT table at four reflectances. The
+  `driver_sha256` of a record is that of the driver as it ran; the published drivers differ from those in their
+  docstrings and local paths, so their digests differ.
 - `figures/`: the figures of the paper.
 - `data/README.md`: where the two tables come from.
 
@@ -68,6 +76,7 @@ Regenerating the tables and figures from the records needs Python 3.10 or later 
 ```sh
 python -m pip install -r requirements.txt
 python code/make_pkan_table.py           # paper/table_pkan*.tex, the published benchmark, and the numbers of its section
+python code/make_rho_tables.py           # paper/table_rho_*.tex, the principal networks at four reflectances
 sh code/make_network_table.sh            # the network table, written into paper/retrieval_training.tex
 python code/plot_paper_figures.py        # figures/fig_weight and figures/fig_frontier
 latexmk -pdf -cd paper/retrieval_training.tex

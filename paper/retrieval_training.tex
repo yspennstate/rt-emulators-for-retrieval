@@ -27,15 +27,18 @@ Israel. \texttt{yitzchak.shmalo@gmail.com}.}}
 Radiative-transfer emulators are fitted to a code's outputs but used through an inverse, the retrieval of surface
 reflectance, and here they are fitted and chosen on the retrieval error. On the EMIT table, networks trained on the
 square root of the retrieval weights floored at a hundredth of the median transmission lower the radiance error by
-$8\%$ and the 95th percentiles of the retrieval error by $32$ to $44\%$ on every one of ten splits. On the libRadtran
+$8\%$ and the 95th percentiles of the retrieval error by $32$ to $44\%$ on every one of ten splits, and they lower
+every tail on every split at reflectances from $0.1$ to $0.9$ with each failed inversion counted as an infinite error;
+a kernel fitted on learned network features keeps the lowest retrieval tails on this table. On the libRadtran
 benchmark of Mazid and Rishe the same weights lower the radiance error from $0.91\%$ to $0.11\%$ and the retrieval tail
 from $4.6$ to $0.35$ points on every one of ten seeds, at a larger error in the spherical albedo, and on states beyond
 the training range of aerosol and water vapour they lower the root-mean-square error as well. Two failed evaluations of
 the code in the EMIT table make every weighted network worse than the plain one, and refitting a convex stack on the
 retrieval error lowers its tail by a quarter. The theory behind these results gives the retrieval error exactly in
 terms of the component errors and shows that the forward and retrieval rankings of two emulators differ by a change of
-measure with density proportional to $t^2/q^4$. Training on the retrieval error is regression under a known, unbounded
-covariate shift whose price in effective sample size can be computed before any training.
+measure with density proportional to $t^2/q^4$. With the transmission floored, training on the retrieval error is
+regression under a known covariate shift whose price in effective sample size can be computed before any training;
+without the floor the shift is not integrable.
 \end{abstract}
 
 \section{Introduction}
@@ -69,10 +72,13 @@ the fit one decade above it. Flattening the weights, $\bar w_\tau^{\,\kappa}$ wi
 better than any floor: at a hundredth of the median transmission and $\kappa=1/2$ the network lowers the radiance error
 by $8\%$ and the four tails by $32$ to $44\%$ on average, each on every split, and it attains the floored objectives on
 held-out states better than the networks fitted on them; only the albedo error grows, by less than half. Kernel ridge
-regression fitted on the floored weights, the truncated reweighting of \cite{mpw}, repeats the pattern of the floors
+regression fitted on the floored weights, a reweighting with truncated weights as in \cite{mpw}, repeats the pattern of the floors
 (Section~\ref{sec:kernelfit}): at a tenth of the median transmission it lowers every physical tail on every split, by
 $9$ to $15\%$, at $12\%$ more radiance error, and at a thousandth its objective on held-out states falls to $0.08$ of the
-plain fit's while the radiance error and two of the tails rise.
+plain fit's while the radiance error and two of the tails rise. Scored at reflectances from $0.1$ to $0.9$ with every
+failed inversion counted as an infinite error, the floored and flattened networks lower every tail on every split, and
+the kernel on learned features of \cite{shmalo2} keeps the lowest retrieval tails of all the emulators at every
+reflectance (Table~\ref{tab:rhoemit}).
 
 The table holds two failed evaluations of the code, with zero transmission in most bands. A floored weight gives such
 an entry the weight of $u^{-2}$ ordinary ones, and with the two in the table every weighted network is worse on held-out
@@ -102,9 +108,11 @@ and over a range of reflectances it is a Mahalanobis norm of the component error
 state only through $(t,s)$ and is positive definite once three reflectances are used (Proposition~\ref{prop:rank}). The
 forward and retrieval rankings of two emulators differ by a change of measure with density proportional to $t^2/q^4$
 (Proposition~\ref{prop:measure}), and on the EMIT table the convex stack's net excess of squared retrieval error lies in
-the tenth of the entries where that density is smallest (Section~\ref{sec:rankings}). Training on the retrieval error
-is regression under a covariate shift whose likelihood ratio is known in closed form and is unbounded as $t\to0$; a
-floor on $t$ truncates it as in the reweighted estimators of \cite{mpw}. The rate that a fit certified in the weighted
+the tenth of the entries where that density is smallest (Section~\ref{sec:rankings}). With the transmission floored,
+training on the retrieval error is regression under a covariate shift whose likelihood ratio is known in closed form and
+bounded by the floor; without the floor the ratio is not integrable once the transmissions approach zero as those of
+the EMIT table do, so the floor defines the target rather than approximating one (Section~\ref{sec:training}). The rate
+that a fit certified in the weighted
 norm guarantees is sharp (Propositions~\ref{prop:weighted-rate} and~\ref{prop:weighted-attained}), and the price of the
 weighting can be computed before any training: the effective sample size of the floored weights is of the order of the
 number of entries below the floor (Proposition~\ref{prop:neff}), and a fraction $(2-\beta)/2$ of their weight lies below
@@ -286,11 +294,17 @@ network is trained with AdamW and a cosine schedule for up to $150$ epochs and s
 patience of $25$ epochs. The convex stacks of \cite{wolpert,breiman} combine the six members with weights on a simplex
 for each component.
 
-\paragraph{Scores.} All scores are on the test block, at $\rho=0.7$: the mean relative $\ell^2$ error of the radiance
-across bands, and the 95th percentile of the retrieval error $|\hat\rho-\rho|$, in points of reflectance ($100$ times
-the absolute error), over all entries and over the physical domain above $fT_{\rm train}$ for $f=10^{-12},10^{-3},
-10^{-2}$, that is, the entries with $t\ge fT_{\rm train}$, $0\le s<1$ and $1-\rho s\ge0.3$, where a failed inversion is
-counted as a failure and left out of the percentile \cite{shmalo2}.
+\paragraph{Scores.} All scores are on the test block, at $\rho=0.7$ unless stated otherwise: the mean relative $\ell^2$
+error of the radiance across bands, and the 95th percentile of the retrieval error $|\hat\rho-\rho|$, in points of
+reflectance ($100$ times the absolute error), over all entries and over the physical domain above $fT_{\rm train}$ for
+$f=10^{-12},10^{-3},10^{-2}$, that is, the entries with $t\ge fT_{\rm train}$, $0\le s<1$ and $1-\rho s\ge0.3$. An
+inversion fails when the predicted denominator $\hat t+\hat s(L-\hat a)$ is not positive or the retrieved value is not
+finite. Tables~\ref{tab:networks}, \ref{tab:pkan}, \ref{tab:pkanood} and~\ref{tab:pkanabl} follow \cite{shmalo2}: a
+failed inversion is left out of the percentiles on the physical domain and its share is given beside them, and the
+all-band percentile takes a non-finite inversion as a retrieved reflectance of zero. Tables~\ref{tab:rhoemit}
+and~\ref{tab:rhopkan} score the principal networks, and on the EMIT table the emulators of \cite{shmalo2}, at
+$\rho=0.1$, $0.4$, $0.7$ and $0.9$ from their saved test predictions, and count every failed inversion as an infinite
+error, so that a tail is infinite once more than five percent of its entries fail.
 
 \section{Experiments}\label{sec:experiments}
 
@@ -313,7 +327,7 @@ A fit weighted for the retrieval learns, in effect, from about as many entries a
 weight sits on entries that a retrieval at the same floor does not use (Proposition~\ref{prop:neff} and
 Corollary~\ref{cor:below}). On the EMIT table the share of the entries with transmission at most $x$ behaves as
 $Ax^\beta$ for small $x$, with $\beta\approx0.12$, and the floored weights keep an effective fraction of $0.24$, $0.11$ and $0.07$ of the entries at $u=10^{-1},10^{-2},10^{-3}$, and $0.76$, $0.90$ and $0.92$ of
-their weight lies below the floor, against the limit $0.94$ of Corollary~\ref{cor:below}. The cut weights put none below the floor and keep an
+their weight lies below the floor, against $0.94$, the population limit of Corollary~\ref{cor:below} as $\tau\to0$. The cut weights put none below the floor and keep an
 effective fraction of $0.13$, $0.024$ and $0.011$.
 
 The weight is concentrated in bands rather than in states. Write $\omega_i=\sum_bw_{ib}$ for the weight of state $i$ and
@@ -516,6 +530,41 @@ same to within $0.05$ points in every score, so the albedo weights play no part 
 falls by $19$ points and the radiance error rises by $0.08$, the trade of $u=10^{-2}$ on a smaller scale. The rule
 settles on the one floor that improves both.
 
+\begin{table}[t]
+\centering\footnotesize\setlength{\tabcolsep}{3pt}
+\resizebox{\textwidth}{!}{\input{table_rho_emit}}
+\caption{The EMIT table scored at four surface reflectances, from saved test predictions: the networks of
+Table~\ref{tab:networks} (without the two failed evaluations) and the emulators of \cite{shmalo2} on the same ten splits
+and test blocks. The radiance error and the 95th percentiles of $|\hat\rho-\rho|$ in points over all bands and on the
+physical domain above $10^{-12}T_{\rm train}$ at $\rho=0.7$, the tail above $10^{-3}T_{\rm train}$ at four
+reflectances, and the share of failed inversions on the physical domain at $\rho=0.7$. Every failed inversion counts
+as an infinite error. Mean over splits $101$--$110$.}\label{tab:rhoemit}
+\end{table}
+
+The order of the networks does not depend on the reflectance at which the retrieval is scored, and it survives
+counting every failed inversion as an infinite error (Table~\ref{tab:rhoemit}). At $\rho=0.1$, $0.4$, $0.7$ and $0.9$
+the floored network at $u=10^{-1}$ lowers the all-band tail and the tails on the physical domain on every split, and
+the flattened network is lower again on every split, in the radiance error and in each of these tails. Its tail above
+$10^{-3}T_{\rm train}$ is $0.57$ times the plain network's at each of the four reflectances ($0.54$ to $0.63$ split by
+split), from $0.31$ against $0.54$ points at $\rho=0.1$ to $2.61$ against $4.58$ at $\rho=0.9$, and its tail above
+$10^{-12}T_{\rm train}$ is $0.41$ to $0.44$ times the plain network's. Above $10^{-3}T_{\rm train}$ the inversion fails
+on $0.10\%$, $0.04\%$ and $0.005\%$ of the entries for the plain, floored and flattened networks, and counting the
+failures moves no mean tail by more than $0.12$ points. Deeper in the domain they set the tail. Between $2.1\%$ and
+$2.6\%$ of the entries above $10^{-12}T_{\rm train}$ fail for the three networks, so that the 95th percentile there is
+the 97th to 97.5th percentile of the finite errors: at $\rho=0.7$ it is $52.3$, $39.1$ and $21.4$ points, against
+$9.7$, $7.4$ and $5.3$ with the failures left out.
+
+The emulators of \cite{shmalo2}, rescored from their saved predictions on the same splits and test blocks, keep the two
+rankings of Section~\ref{sec:rankings} at every reflectance: the convex stack has the lower radiance error and the
+kernel on learned features the lower retrieval tails, on every split at both widths, except the radiance error at
+width $2000$ and $\rho=0.9$, which is lower for the stack on nine splits of ten. The kernel on features is the strongest
+emulator of the EMIT table for the retrieval. At width $2000$ its tail above $10^{-3}T_{\rm train}$ is $0.12$ points at
+$\rho=0.1$ and $0.96$ at $\rho=0.9$, below the flattened network's on every split at every reflectance; its all-band
+tail at $\rho=0.7$ is $7.5$ points against $41.1$; and it has the fewest failed inversions, $1.4\%$ of the entries above
+$10^{-12}T_{\rm train}$ and almost none above $10^{-3}T_{\rm train}$. The retrieval weights improve the network they
+train but do not close the distance to a kernel fitted on learned features, whose radiance error at width $2000$ is
+$0.058\%$ against $0.322\%$.
+
 With the failed evaluations (lower block) every floored and joint arm raises the radiance error and the tails above
 $10^{-3}$ and $10^{-2}T_{\rm train}$ on every split, and only the joint arm at $u=10^{-2}$ has a lower all-band tail on
 all ten. With the failed states the plain network has the lower value of the weighted objective itself on the test blocks
@@ -620,6 +669,33 @@ not compared.
 
 \begin{table}[t]
 \centering\footnotesize\setlength{\tabcolsep}{3pt}
+\resizebox{\textwidth}{!}{\input{table_rho_pkan}}
+\caption{The benchmark scored at four surface reflectances, from the saved test predictions of the networks of
+Tables~\ref{tab:pkan} and~\ref{tab:pkanood}: the radiance error, the 95th percentiles of $|\hat\rho-\rho|$ in points on
+the physical domain above $10^{-12}T_{\rm train}$ and $10^{-3}T_{\rm train}$, counting every failed inversion as an
+infinite error, and the share of failed inversions there. Mean over the ten seeds of the release's split and the five
+of the out-of-distribution split.}\label{tab:rhopkan}
+\end{table}
+
+The gains do not depend on the reflectance at which the retrieval is scored, and they survive counting every failed
+inversion as an infinite error (Table~\ref{tab:rhopkan}). At $\rho=0.1$, $0.4$, $0.7$ and $0.9$ the floored and the
+flattened networks lower the radiance error and the tails above $10^{-12}$ and $10^{-3}T_{\rm train}$ on every one of the
+ten seeds of the release's split and of the five of the out-of-distribution split, and so does the mixture with three
+tenths of the plain objective. The tail of the flattened network above $10^{-3}T_{\rm train}$ grows with the reflectance,
+from $0.11$ points at $\rho=0.1$ to $0.36$ at $\rho=0.9$ on the release's split, as does the plain network's, from
+$0.78$ to $4.09$, and it stays between $0.09$ and $0.14$ times the plain network's ($0.13$ to $0.16$ times on the
+out-of-distribution split). The larger error of the weighted networks in the spherical albedo matters most at large
+reflectance, where $1-\rho s$ is smallest, and at $\rho=0.9$ the flattened network still has a radiance error of
+$0.112\%$ against $0.941\%$ for the plain one. Counting the failed inversions moves the mean tails above
+$10^{-3}T_{\rm train}$ by at most $0.23$ points, since inversions fail there on about $0.15\%$ of the entries for the
+plain network and on almost none for the weighted ones. On the deeper domain above $10^{-12}T_{\rm train}$ they
+fail on $0.91\%$, $0.55\%$ and $0.54\%$ of the entries of the release's split for the plain, floored and flattened
+networks, the weighted networks on fewer entries than the plain one on seven and eight seeds of ten, and with the
+failures counted the tails there are $4.63$, $0.36$ and $0.35$ points at $\rho=0.7$, against $3.59$, $0.33$ and $0.32$
+with the failures left out.
+
+\begin{table}[t]
+\centering\footnotesize\setlength{\tabcolsep}{3pt}
 \resizebox{\textwidth}{!}{\input{table_pkan_abl}}
 \caption{Ablations on the release's split, three seeds each: the exponent $\kappa$ and the floor $u$ of the flattened
 weights, the albedo left unweighted, the share of the plain objective in the mixture, and, in the last block, a wider
@@ -653,8 +729,8 @@ at once.
 
 \subsection{Kernel regression fitted on the retrieval error}\label{sec:kernelfit}
 
-For kernel ridge regression the estimator of Section~\ref{sec:training} is the truncated reweighting of \cite{mpw}: for
-each component and band,
+For kernel ridge regression the floored retrieval loss of Section~\ref{sec:training} gives a reweighted estimator with
+truncated weights, of the form studied in \cite{mpw}: for each component and band,
 \[
 \min_f\ \sum_i w_i\bigl(f(x_i)-y_i\bigr)^2+\lambda\|f\|^2,\qquad \alpha_b=(K+\lambda W_b^{-1})^{-1}y_b ,
 \]
@@ -844,20 +920,42 @@ retrieval; Section~\ref{sec:rankings} measures this on the EMIT table.
 \subsection{What a fit for the retrieval guarantees and what it costs}\label{sec:training}
 
 Consider one output coordinate $c\in\{a,t,s\}$ at one band as a scalar regression on the state $x$, with training
-distribution $p$. The diagonal of the first-order retrieval risk, $\E_p[M_{cc}(x)\,e_c(x)^2]$, is $\E_p[M_{cc}]$ times
-the mean squared error under the distribution $p_c$ with
+distribution $p$ on the physical domain $0\le s<1$, and write $M^\tau$ for the metric $M$ of Section~\ref{sec:exact}
+with $t$ replaced by $\max\{t,\tau\}$ for a floor $\tau>0$. Since $0<q_\rho\le1$ and $\rho\le R$, its diagonal is
+bounded, $M^\tau_{aa}\le\tau^{-2}$, $M^\tau_{tt}\le R^2\tau^{-2}$ and $M_{ss}=\int\rho^4\,\nu(d\rho)\le R^4$, so that
+$0<\E_p[M^\tau_{cc}]<\infty$ and
 \[
-\frac{dp_c}{dp}(x)=w_c(x)=\frac{M_{cc}(x)}{\E_p[M_{cc}]} .
+\frac{dp^\tau_c}{dp}(x)=w^\tau_c(x)=\frac{M^\tau_{cc}(x)}{\E_p[M^\tau_{cc}]}
 \]
-Fitting for the retrieval is therefore regression under covariate shift, with a likelihood ratio that is known in
-closed form rather than estimated; the off-diagonal terms of $M$ couple the coordinates but do not change this. The
-ratio is unbounded: $M_{aa}=\int q_\rho^4\,\nu(d\rho)/t^2$ and $M_{tt}=\int\rho^2q_\rho^2\,\nu(d\rho)/t^2$, so
-$\E_p[w_c^2]<\infty$ requires $\E_p[t^{-4}]<\infty$, which fails for a table whose transmissions come arbitrarily close
-to zero. Replacing $t$ by $\max\{t,\tau\}$ truncates the ratio at a level of order $\tau^{-2}$. For kernel ridge
-regression, the unweighted estimator with a suitable regularization is minimax optimal up to a logarithmic factor when
-the ratio is uniformly bounded, and when it is unbounded with a finite second moment the reweighting by the ratio
-truncated at a suitable level attains the minimax rate \cite{mpw}. A retrieval loss with a floor $\tau$ is that
-truncated reweighting, with a ratio the physics supplies.
+defines a probability distribution $p^\tau_c$. The diagonal of the floored first-order retrieval risk is a multiple
+of the mean squared error under $p^\tau_c$,
+\[
+\E_p[M^\tau_{cc}e_c^2]=\E_p[M^\tau_{cc}]\,\E_{p^\tau_c}[e_c^2].
+\]
+Fitting for the
+retrieval at a floor is therefore regression under covariate shift, with a likelihood ratio that is known in closed
+form rather than estimated and that is bounded, by $\tau^{-2}/\E_p[M^\tau_{aa}]$ for the path radiance and by
+$R^2\tau^{-2}/\E_p[M^\tau_{tt}]$ for the transmission; the off-diagonal terms of $M^\tau$ couple the coordinates but do
+not change this. For kernel ridge regression under a uniformly bounded ratio, the unweighted estimator with a suitable
+regularization is minimax optimal up to a logarithmic factor \cite{mpw}.
+
+Without the floor the construction needs $\E_p[M_{cc}]<\infty$. On the physical domain $q_\rho\ge1-R>0$, so that
+$M_{aa}\ge(1-R)^4t^{-2}$ and $M_{tt}\ge(1-R)^2\int\rho^2\,\nu(d\rho)\,t^{-2}$, and for the path radiance and the
+transmission the condition is $\E_p[t^{-2}]<\infty$. Under the tail hypothesis of Proposition~\ref{prop:neff},
+$\Prob_p(t\le u)\sim Au^\beta$ with $0<\beta<2$, the proof of that proposition gives
+$\E_p[t^{-2}\1\{t>\tau\}]\to\infty$ as $\tau\to0$, so $\E_p[t^{-2}]=\infty$: the unfloored retrieval weights of these two
+coordinates define no distribution, and as $\tau\to0$ a fraction $(2-\beta)/2$ of the floored weight comes to lie below
+the floor (Corollary~\ref{cor:below}). The minimax rate that \cite{mpw} prove for a reweighting truncated at a suitable
+level assumes an unbounded ratio with a finite second moment, which needs a finite normalization to begin with; it does
+not cover the unfloored retrieval weights. A retrieval loss with a floor $\tau$ is therefore not an approximation to a
+finite unfloored target but regression under the bounded shift $p^\tau_c$ itself, with a ratio the physics supplies.
+
+On a finite table every one of these means is finite as long as every transmission is positive, and the effective
+sample sizes of Section~\ref{sec:weightsits} are quantities of the table. The divergence concerns the population: on a
+table it shows as weight concentrated on the smallest transmissions, and Proposition~\ref{prop:neff} and
+Corollary~\ref{cor:below} give its limit as $\tau\to0$ under the tail hypothesis, which the transmissions of the EMIT
+table follow with $\beta\approx0.12$. An entry with $t=0$, such as the two failed evaluations of Section~\ref{sec:data},
+makes even the table's unfloored mean infinite.
 
 \subsubsection{The rate a weighted fit guarantees}
 
@@ -1000,7 +1098,10 @@ states but give up radiance error and, at the lowest, the tail. Flattening is th
 square root of the weights floored at a hundredth keeps the order of the small transmissions that a floor at a tenth
 erases and removes most of their range, and the network trained on it improves on the plain one in the radiance error
 and in every tail, on every split; the albedo, whose retrieval weight vanishes with the transmission below the floor,
-is the one component it fits less well. Kernel ridge regression on the floored weights moves as the networks do, so what is
+is the one component it fits less well. The order of the plain, floored and flattened networks holds at every
+reflectance from $0.1$ to $0.9$ with the failed inversions counted, and none of them reaches the kernel on learned
+features of \cite{shmalo2}, which has the lowest retrieval tails on the EMIT table at every reflectance; the retrieval
+weights have not been tried on such a kernel. Kernel ridge regression on the floored weights moves as the networks do, so what is
 learned here concerns the weights and not the model class. On the published benchmark the weights carry over: the
 retrieval gains hold on every seed, on states beyond the training range of aerosol and water vapour the weighted
 networks also have the lower root-mean-square error, and in an ablation over three seeds a flatter exponent kept the
@@ -1017,8 +1118,9 @@ single member on 33 of the 40 halves.
 
 The first-order bound behind every criterion here is accurate where the component errors are small relative to the
 transmission, and the floors keep the criteria finite where they are not; the constrained retrieval and the transfer
-inequality of \cite{shmalo2} cover the rest. The criterion is taken at $\rho=0.7$ or over three reflectances; a
-retrieval over a different range of reflectances changes the metric but not the argument.
+inequality of \cite{shmalo2} cover the rest. The criteria are fitted at $\rho=0.7$ or over three reflectances, and the
+fits keep their order when the retrieval is scored at $0.1$, $0.4$ and $0.9$; a retrieval over a different range of
+reflectances changes the metric but not the argument.
 
 \section*{Acknowledgements}
 
