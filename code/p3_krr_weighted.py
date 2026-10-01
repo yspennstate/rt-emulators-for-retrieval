@@ -1,6 +1,6 @@
 """Kernel ridge regression fitted on the retrieval-weighted error.
 
-Section 7.3 fits every kernel on the plain squared error and moves only its parameters. Here the fit itself is
+Section 5.7 of the paper fits every kernel on the plain squared error and moves only its parameters. Here the fit itself is
 weighted. For each component c and band b,
 
     minimize over f   sum_i w_c(i, b) (f(x_i) - y_c(i, b))^2 + lambda ||f||^2,

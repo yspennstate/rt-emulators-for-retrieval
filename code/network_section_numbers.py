@@ -1,4 +1,4 @@
-"""Every number that Section 7.1 (Networks fitted on the retrieval error) quotes for the clean table, from the records.
+"""Every number that Section 5.3 (Networks fitted on the retrieval error) quotes for the clean table, from the records.
 
 Reads the clean-table records (p3_weight_family.py with --drop-rows) and the pilot records on the table as provided,
 and prints, in the order the text uses them: the plain network's scores; for every arm the mean difference from the

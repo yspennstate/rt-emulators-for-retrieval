@@ -9,7 +9,7 @@ without any test state.
                     that component across bands (the objective of the recorded stack, fitted here on the fitting half);
   retrieval stack   convex weights for the four components jointly minimizing sum (v^T e)^2 over the fitting entries,
                     e = (e_a, e_t, e_s) = (e_Y1, e_Y2 + e_Y3, e_Y4) and v = (q^2/t, rho q/t, rho^2) at rho = 0.7 with
-                    t replaced by max(t, tau_fit T_train): the first-order retrieval error of the note (Corollary 2).
+                    t replaced by max(t, tau_fit T_train): the first-order retrieval error of the paper (Corollary 6.2).
                     The fitting entries are those of the physical domain with t >= tau_fit T_train.
 
 Both stacks, their members and the recorded stack are scored on the evaluation half with the scorer of the main

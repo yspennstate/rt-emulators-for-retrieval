@@ -1,4 +1,4 @@
-"""Check the exact retrieval-error identity of notes/retrieval_consistent_training.tex (Lemma 1) and its first-order form."""
+"""Check the exact retrieval-error identity of the paper (Lemma 6.1) and its first-order form (Corollary 6.2)."""
 import numpy as np
 
 rng = np.random.default_rng(1)

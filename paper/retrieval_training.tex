@@ -5,7 +5,7 @@
 \usepackage{graphicx}
 \graphicspath{{../figures/}}
 \usepackage[hidelinks]{hyperref}
-\newtheorem{lemma}{Lemma}
+\newtheorem{lemma}{Lemma}[section]
 \newtheorem{proposition}[lemma]{Proposition}
 \newtheorem{corollary}[lemma]{Corollary}
 \theoremstyle{remark}
@@ -25,16 +25,17 @@ Israel. \texttt{yitzchak.shmalo@gmail.com}.}}
 
 \begin{abstract}
 Radiative-transfer emulators are fitted to a code's outputs but used through an inverse, the retrieval of surface
-reflectance. We give the retrieval error exactly in terms of the component errors and show that the forward and
-retrieval rankings of two emulators differ by a change of measure with density proportional to $t^2/q^4$. Training on
-the retrieval error is regression under a known, unbounded covariate shift whose price in effective sample size can be
-computed before any training. On the EMIT table, networks trained on the square root of the retrieval weights floored
-at a hundredth of the median transmission lower the radiance error by $8\%$ and the 95th percentiles of the retrieval
-error by $32$ to $44\%$ on every one of ten splits. On the libRadtran benchmark of Mazid and Rishe the same weights
-lower the radiance error from $0.91\%$ to $0.11\%$ and the retrieval tail from $4.6$ to $0.35$ points on every one of ten
-seeds, at a larger error in the spherical albedo, and on states beyond the training range of aerosol and water vapour
-they lower the root-mean-square error as well. Two failed evaluations of the code in the EMIT table make every weighted network
-worse than the plain one, and refitting a convex stack on the retrieval error lowers its tail by a quarter.
+reflectance, and here they are fitted and chosen on the retrieval error. On the EMIT table, networks trained on the
+square root of the retrieval weights floored at a hundredth of the median transmission lower the radiance error by
+$8\%$ and the 95th percentiles of the retrieval error by $32$ to $44\%$ on every one of ten splits. On the libRadtran
+benchmark of Mazid and Rishe the same weights lower the radiance error from $0.91\%$ to $0.11\%$ and the retrieval tail
+from $4.6$ to $0.35$ points on every one of ten seeds, at a larger error in the spherical albedo, and on states beyond
+the training range of aerosol and water vapour they lower the root-mean-square error as well. Two failed evaluations of
+the code in the EMIT table make every weighted network worse than the plain one, and refitting a convex stack on the
+retrieval error lowers its tail by a quarter. The theory behind these results gives the retrieval error exactly in
+terms of the component errors and shows that the forward and retrieval rankings of two emulators differ by a change of
+measure with density proportional to $t^2/q^4$. Training on the retrieval error is regression under a known, unbounded
+covariate shift whose price in effective sample size can be computed before any training.
 \end{abstract}
 
 \section{Introduction}
@@ -56,65 +57,69 @@ radiance error of the emulators compared and a larger tail of the retrieval erro
 \cite{shmalo2}.
 
 The question here is what an emulator should be fitted to, and chosen by, when it is used through an inverse. The
-answer has three parts.
+experiments come first and the theory that accounts for them second.
 
-The retrieval error has an exact closed form in the three component errors (Lemma~\ref{lem:exact}). To first order it
-is the forward error at $\rho$ divided by the slope, and over a range of reflectances it is a Mahalanobis norm of the
-component errors with a metric that depends on the state only through $(t,s)$ and is positive definite once three
-reflectances are used (Proposition~\ref{prop:rank}). The forward and retrieval rankings of two emulators differ by a
-change of measure with density proportional to $t^2/q^4$ (Proposition~\ref{prop:measure}), and on the EMIT table the
-convex stack's net excess of squared retrieval error lies in the tenth of the entries where that density is smallest.
+Networks trained on the retrieval error show what the weights buy and what they cost (Section~\ref{sec:networks}). On
+the EMIT table the floored weights at a tenth of the median transmission lower the tail of the retrieval error on the
+physical domain on every split, by nearly a quarter to more than a third on average, and leave the radiance error
+unchanged, and a rule fixed before the runs, which chooses the floor on the validation block, picks that floor on every
+split. At lower floors, which keep fewer effective entries, the weighted objective still falls but the radiance error
+grows, and at the lowest floor every tail with it; the objective at a low floor is attained best on held-out states by
+the fit one decade above it. Flattening the weights, $\bar w_\tau^{\,\kappa}$ with $0<\kappa<1$ \cite{shimodaira}, does
+better than any floor: at a hundredth of the median transmission and $\kappa=1/2$ the network lowers the radiance error
+by $8\%$ and the four tails by $32$ to $44\%$ on average, each on every split, and it attains the floored objectives on
+held-out states better than the networks fitted on them; only the albedo error grows, by less than half. Kernel ridge
+regression fitted on the floored weights, the truncated reweighting of \cite{mpw}, repeats the pattern of the floors
+(Section~\ref{sec:kernelfit}): at a tenth of the median transmission it lowers every physical tail on every split, by
+$9$ to $15\%$, at $12\%$ more radiance error, and at a thousandth its objective on held-out states falls to $0.08$ of the
+plain fit's while the radiance error and two of the tails rise.
 
-Training on the retrieval error is regression under a covariate shift whose likelihood ratio is known in closed form
-and is unbounded as $t\to0$; a floor on $t$ truncates it as in the reweighted estimators of \cite{mpw}. The rate that a
-fit certified in the weighted norm guarantees is sharp (Propositions~\ref{prop:weighted-rate}
-and~\ref{prop:weighted-attained}), and the price of the weighting can be computed before any training: the effective
-sample size of the floored weights is of the order of the number of entries below the floor
-(Proposition~\ref{prop:neff}), and a fraction $(2-\beta)/2$ of their weight lies below the floor
-(Corollary~\ref{cor:below}). On the EMIT table that weight sits in about thirty of the 285 bands, those of the
-water-vapour absorption, and it keeps most of the states. Networks trained on the weighted objective show the price
-from both sides (Section~\ref{sec:networks}). On the EMIT table the floored weights at a tenth of the median
-transmission lower the tail of the retrieval error on the physical domain on every split, by nearly a quarter to more
-than a third on average, and leave the radiance error unchanged, and a rule fixed before the runs, which chooses the floor on the validation block,
-picks that floor on every split. At lower floors, which keep fewer effective entries, the weighted objective still
-falls but the radiance error grows, and at the lowest floor every tail with it; the objective at a low floor is
-attained best on held-out states by the fit one decade above it. Flattening the weights, $\bar w_\tau^{\,\kappa}$ with
-$0<\kappa<1$ \cite{shimodaira}, does better than any floor: at a hundredth of the median transmission and $\kappa=1/2$
-the network lowers the radiance error by $8\%$ and the four tails by $32$ to $44\%$ on average, each on every split,
-and it attains the floored objectives on held-out states better than the networks fitted on them; only the albedo
-error grows, by less than half. Kernel ridge regression fitted on the floored weights, the truncated reweighting of
-\cite{mpw}, repeats the pattern of the floors (Section~\ref{sec:kernelfit}): at a tenth of the median transmission it
-lowers every physical tail on every split, by $9$ to $15\%$, at $12\%$ more radiance error, and at a thousandth its
-objective on held-out states falls to $0.08$ of the plain fit's while the radiance error and two of the tails rise. The table holds two failed evaluations of the code, with zero transmission in most bands. A floored weight
-gives such an entry the weight of $u^{-2}$ ordinary ones, and with the two in the table every weighted network is worse
-on held-out states than the plain one, on nearly every split even on the weighted objective itself. On a libRadtran table, where the floored
-weights fall on one band of thirteen, no floor improves on the plain network in both the radiance error and the tails,
-and the same rule picks one that is worse in the radiance error and in the physical tails. On the published benchmark
-of \cite{pkan}, the same corpus split by its release into $35{,}000$ training states, with the 6S coefficients as an
-input and the band as one, the flattened and floored weights lower the radiance error by factors of $8.5$ and $6.9$ and
-every retrieval tail by factors of $10$ to $13$ on every one of ten seeds; in the release's own metrics they cut the mean
-absolute error to $0.27$ and $0.33$ of its best model's and raise the root-mean-square error by a quarter, all of it from
-the spherical albedo. On states above the training range of the aerosol optical depth or the water-vapour column the
-same weights lower the root-mean-square error too, by $28$ and $30\%$ on every seed (Section~\ref{sec:pkan}).
+The table holds two failed evaluations of the code, with zero transmission in most bands. A floored weight gives such
+an entry the weight of $u^{-2}$ ordinary ones, and with the two in the table every weighted network is worse on held-out
+states than the plain one, on nearly every split even on the weighted objective itself. On a libRadtran table, where
+the floored weights fall on one band of thirteen, no floor improves on the plain network in both the radiance error and
+the tails, and the same rule picks one that is worse in the radiance error and in the physical tails. On the published
+benchmark of \cite{pkan}, the same corpus split by its release into $35{,}000$ training states, with the 6S coefficients
+as an input and the band as one, the flattened and floored weights lower the radiance error by factors of $8.5$ and $6.9$
+and every retrieval tail by factors of $10$ to $13$ on every one of ten seeds; in the release's own metrics they cut the
+mean absolute error to $0.27$ and $0.33$ of its best model's and raise the root-mean-square error by a quarter, all of it
+from the spherical albedo. On states above the training range of the aerosol optical depth or the water-vapour column
+the same weights lower the root-mean-square error too, by $28$ and $30\%$ on every seed (Section~\ref{sec:pkan}).
 
-Choosing a few numbers on the retrieval error is a different matter. The price of choosing among $K$ candidates on a
-weighted criterion is set by the effective number of states rather than of entries (Proposition~\ref{prop:select}),
-and the retrieval weights keep three quarters of the validation states or more. Refitting the weights of the convex
+Choosing a few numbers on the retrieval error costs much less than fitting on it. Refitting the weights of the convex
 stack on the first-order retrieval error, with the members fitted on the forward error, lowers the 95th percentile of
 the retrieval error on the physical domain below that of the component stack on 39 of 40 held-out halves of the EMIT
 table, by a quarter at the median, to the level of the kernel on learned features, the best single member
-(Section~\ref{sec:stacks}); every stack that no other improves on both counts minimizes one of a one-parameter family
-of mixed objectives (Proposition~\ref{prop:pareto}). Chosen on the cut criterion, the input length scales of a kernel
-regression move toward the water-vapour column and nearly halve its tail on the physical domain, at four and a half
-times its radiance error; at that radiance error, about the networks' own, the tail is a fifth of the plain network's
-(Section~\ref{sec:kernels}). The stopping epoch of a network, a choice among many close candidates, has
-little to give either way (Section~\ref{sec:epochs}).
+(Section~\ref{sec:stacks}). Chosen on the cut criterion, the input length scales of a kernel regression move toward the
+water-vapour column and nearly halve its tail on the physical domain, at four and a half times its radiance error; at
+that radiance error, about the networks' own, the tail is a fifth of the plain network's (Section~\ref{sec:kernels}).
+The stopping epoch of a network, a choice among many close candidates, has little to give either way
+(Section~\ref{sec:epochs}).
 
-\paragraph{Outline.} Section~\ref{sec:related} reviews related work. Section~\ref{sec:exact} gives the retrieval error
-and its metric, Section~\ref{sec:measure} the change of measure, Section~\ref{sec:training} what a weighted fit
-guarantees and what it costs, and Section~\ref{sec:choosing} the price of choosing on a weighted criterion and the
-family of stacking objectives. Section~\ref{sec:data} describes the tables, the emulators and the scores, and
-Section~\ref{sec:experiments} the experiments.
+The theory of Section~\ref{sec:theory} accounts for these results. The retrieval error has an exact closed form in the
+three component errors (Lemma~\ref{lem:exact}). To first order it is the forward error at $\rho$ divided by the slope,
+and over a range of reflectances it is a Mahalanobis norm of the component errors with a metric that depends on the
+state only through $(t,s)$ and is positive definite once three reflectances are used (Proposition~\ref{prop:rank}). The
+forward and retrieval rankings of two emulators differ by a change of measure with density proportional to $t^2/q^4$
+(Proposition~\ref{prop:measure}), and on the EMIT table the convex stack's net excess of squared retrieval error lies in
+the tenth of the entries where that density is smallest (Section~\ref{sec:rankings}). Training on the retrieval error
+is regression under a covariate shift whose likelihood ratio is known in closed form and is unbounded as $t\to0$; a
+floor on $t$ truncates it as in the reweighted estimators of \cite{mpw}. The rate that a fit certified in the weighted
+norm guarantees is sharp (Propositions~\ref{prop:weighted-rate} and~\ref{prop:weighted-attained}), and the price of the
+weighting can be computed before any training: the effective sample size of the floored weights is of the order of the
+number of entries below the floor (Proposition~\ref{prop:neff}), and a fraction $(2-\beta)/2$ of their weight lies below
+the floor (Corollary~\ref{cor:below}). On the EMIT table that weight sits in about thirty of the 285 bands, those of the
+water-vapour absorption, and it keeps most of the states (Section~\ref{sec:weightsits}). The price of choosing among $K$
+candidates on a weighted criterion is set by the effective number of states rather than of entries
+(Proposition~\ref{prop:select}), and the retrieval weights keep three quarters of the validation states or more; every
+stack that no other improves on both counts minimizes one of a one-parameter family of mixed objectives
+(Proposition~\ref{prop:pareto}).
+
+\paragraph{Outline.} Section~\ref{sec:related} reviews related work. Section~\ref{sec:setting} sets out the retrieval
+error and the weights used throughout, Section~\ref{sec:data} the tables, the emulators and the scores, and
+Section~\ref{sec:experiments} the experiments. Section~\ref{sec:theory} gives the theory: the exact retrieval error and
+its metric, the change of measure, what a weighted fit guarantees and what it costs, and the price of choosing on a
+weighted criterion. Section~\ref{sec:discussion} discusses the results, and Appendix~\ref{app:proofs} holds the proofs.
 
 \section{Related work}\label{sec:related}
 
@@ -190,383 +195,35 @@ the kernel interpolant changes when half of the data are dropped. Stacking \cite
 \cite{batesgranger}. The networks are trained with Adam \cite{adam} and stopped on held-out data \cite{prechelt}, in
 PyTorch \cite{pytorch}.
 
-\section{The retrieval error of an emulator}\label{sec:exact}
+\section{The retrieval error and the weights}\label{sec:setting}
 
-An emulator predicts $(\hat a,\hat t,\hat s)=(a+e_a,t+e_t,s+e_s)$, and the retrieval inverts the predicted relation at
-the true radiance,
+An emulator predicts $(\hat a,\hat t,\hat s)=(a+e_a,t+e_t,s+e_s)$ at each state and band, and the retrieval inverts the
+predicted relation at the true radiance,
 \[
 \hat\rho=\frac{L-\hat a}{\hat t+\hat s(L-\hat a)},\qquad L=L(\rho).
 \]
-Write $q=1-\rho s$, so that $\partial_\rho L=t/q^2$.
-
-\begin{lemma}[exact form of the retrieval error]\label{lem:exact}
-Put
+Write $q=1-\rho s$, so that $\partial_\rho L=t/q^2$, and $e=(e_a,e_t,e_s)^\top$. To first order in the component errors
+(Corollary~\ref{cor:first}) the retrieval error is $\hat\rho-\rho\approx-d$ with
 \[
-\ell=-\frac{q}{t}\,(q\,e_a+\rho\,e_t)-\rho^2 e_s,\qquad
-\delta=\frac{q}{t}\,(e_t-s\,e_a)+\rho\,e_s-\frac{q}{t}\,e_a e_s .
+d=v_\rho^\top e,\qquad v_\rho=\Bigl(\frac{q^2}{t},\ \frac{\rho q}{t},\ \rho^2\Bigr)^{\!\top},
 \]
-Whenever the predicted denominator is nonzero,
-\[
-\hat\rho-\rho=\frac{\ell+(\rho q/t)\,e_a e_s}{1+\delta}.
-\]
-\end{lemma}
+and the forward error at $\rho$, $r=\hat L(\rho)-L(\rho)$ with $\hat L(\rho)=\hat a+\rho\hat t/(1-\rho\hat s)$, is
+$r\approx(t/q^2)\,d$: the retrieval error is the forward error divided by the slope. Hence $r^2\approx g\,d^2$ with
+$g=t^2/q^4$, so that relative to the retrieval the forward error gives an entry of transmission $t$ a weight of order
+$t^2$. In the retrieval, errors in the path radiance and in the transmission carry weights of order $1/t^2$, and the error
+in the spherical albedo a weight of order one.
 
-\begin{proof}
-Let $u=L-a=\rho t/q$ and $D=t+su=t/q$, so that $\rho=u/D$. The predicted denominator is
-$\hat D=\hat t+\hat s(u-e_a)=D+e_t+u\,e_s-s\,e_a-e_ae_s$, and
-\[
-\hat\rho-\rho=\frac{u-e_a}{\hat D}-\frac{u}{D}=\frac{-e_aD-u(e_t+u\,e_s-s\,e_a)+u\,e_ae_s}{D\hat D}.
-\]
-Since $D-su=t$, the numerator equals $-t\,e_a-u\,e_t-u^2e_s+u\,e_ae_s$. Divide numerator and denominator by
-$D^2=t^2/q^2$ and use $u/D=\rho$, $uq^2/t^2=\rho q/t$ and $\hat D/D=1+\delta$.
-\end{proof}
-
-\begin{corollary}[first order]\label{cor:first}
-As the component errors tend to zero relative to $t$,
-\[
-\hat\rho-\rho=\ell+O\!\left(\frac{|e|^2}{t^2}\right),\qquad
-\ell=-\frac{q^2}{t}\bigl(\hat L(\rho)-L(\rho)\bigr)+O\!\left(\frac{|e|^2}{t^2}\right),
-\]
-where $\hat L(\rho)=\hat a+\rho\hat t/(1-\rho\hat s)$ and $|e|=|e_a|+|e_t|+t|e_s|$. The retrieval error is the forward
-error at $\rho$ divided by the slope $\partial_\rho L=t/q^2$.
-\end{corollary}
-
-\begin{proof}
-The first statement is Lemma~\ref{lem:exact} with $|\delta|=O(|e|/t)$. For the second, the forward error is
-$\hat L(\rho)-L(\rho)=e_a+\rho e_t/q+\rho^2 t e_s/q^2+O(|e|^2)$, and multiplying by $-q^2/t$ gives $\ell$.
-\end{proof}
-
-Let $\nu$ be a probability measure on the reflectances of interest in $(0,R]$, and write $e=(e_a,e_t,e_s)^\top$ and
-\[
-v_\rho=\left(\frac{q_\rho^2}{t},\ \frac{\rho q_\rho}{t},\ \rho^2\right)^{\!\top},\qquad
-M(t,s)=\int v_\rho v_\rho^\top\,\nu(d\rho),\qquad q_\rho=1-\rho s .
-\]
-By Corollary~\ref{cor:first}, $\int(\hat\rho-\rho)^2\,\nu(d\rho)=e^\top M(t,s)\,e+O(|e|^3/t^3)$ at every entry, so the
-first-order mean squared retrieval error of an emulator over an evaluation distribution is the mean of a Mahalanobis
-norm of its component errors, with a metric that depends on the state and the band only through $(t,s)$.
-
-\begin{proposition}[rank of the metric]\label{prop:rank}
-If $\nu$ is a point mass, $M$ has rank one. If the support of $\nu$ contains at least three points, $M$ is positive
-definite for every $t>0$ and $s\in[0,1)$.
-\end{proposition}
-
-\begin{proof}
-A point mass gives $M=v_\rho v_\rho^\top$. In general $x^\top Mx=\int(v_\rho^\top x)^2\,\nu(d\rho)$, and
-$v_\rho^\top x=p_x(\rho)$ with $p_x(\rho)=x_1(1-2s\rho+s^2\rho^2)/t+x_2(\rho-s\rho^2)/t+x_3\rho^2$, a polynomial of
-degree at most two. Its coefficients in the basis $(1,\rho,\rho^2)$ are $(x_1/t,\,(x_2-2sx_1)/t,\,(s^2x_1-sx_2)/t+x_3)$,
-a triangular invertible map of $x$, so $p_x\equiv0$ only for $x=0$. A nonzero polynomial of degree at most two
-vanishes at no more than two points, hence $x^\top Mx>0$ for $x\neq0$ once $\nu$ charges three.
-\end{proof}
-
-\begin{remark}
-At a single reflectance the retrieval sees one combination of the three component errors, $v_\rho^\top e$, and is
-blind to the two directions orthogonal to $v_\rho$. For small $t$ the first two coordinates of $v_\rho$ scale as $1/t$
-and the third does not, so path-radiance and transmission errors are weighted by $1/t^2$ and the albedo error by a
-constant, in agreement with the transfer inequality $|\bar\rho-\rho|\le e_R/t$, $e_R=|e_a|+R|e_t|+R^2t|e_s|$, of
-\cite{shmalo2}, where the albedo enters as $R^2t|e_s|/t=R^2|e_s|$.
-\end{remark}
-
-A comparison with the exact inverse on $10^5$ random states, with component errors of the order of the components
-themselves, reproduces Lemma~\ref{lem:exact} to within $1.5\times10^{-12}$.
-
-\section{Forward and retrieval rankings differ by a change of measure}\label{sec:measure}
-
-Fix $\rho$ and write $d_f=v_\rho^\top e_f$ for an emulator $f$ with component errors $e_f$. By
-Corollary~\ref{cor:first}, to first order the retrieval error is $\hat\rho_f-\rho=-d_f$ and the forward error is
-$r_f=\hat L_f(\rho)-L(\rho)=(t/q^2)\,d_f$. Let $p$ be a distribution over the entries, a state and a band, with
-$\E_p[d_f^2]<\infty$, and put $g=t^2/q^4$.
-
-\begin{proposition}[change of measure]\label{prop:measure}
-If $0<\E_p[g]<\infty$, then $\E_p[r_f^2]=\E_p[g]\,\E_{p_g}[d_f^2]$ with $dp_g/dp=g/\E_p[g]$. Two emulators $f,h$ are
-ordered by the forward squared error as they are ordered by the squared retrieval error under $p_g$. The orders under
-$p$ and $p_g$ disagree, $\E_p[r_f^2]<\E_p[r_h^2]$ while $\E_p[d_f^2]>\E_p[d_h^2]$, exactly when $\Delta=d_f^2-d_h^2$
-satisfies
-\[
-\E_p[\Delta]>0\quad\text{and}\quad \mathrm{Cov}_p(g,\Delta)<-\E_p[g]\,\E_p[\Delta].
-\]
-\end{proposition}
-
-\begin{proof}
-The first identity is $r_f^2=g\,d_f^2$ integrated against $p$. The second statement follows from
-$\E_p[g\Delta]=\E_p[g]\E_p[\Delta]+\mathrm{Cov}_p(g,\Delta)$.
-\end{proof}
-
-Relative to the retrieval, the forward metric gives an entry of transmission $t$ a weight of order $t^2$. On the EMIT
-table, where the transmissions of the physical domain range over more than twenty orders of magnitude, the forward
-metric is blind to the entries that set the tail of the retrieval error, and an emulator whose excess squared error
-sits at small transmission can win on the forward metric and lose on the retrieval. For the convex stack and the kernel
-on learned features of \cite{shmalo2}, on three splits at two network widths and on the physical domain above
-$10^{-3}T_{\rm train}$, the first-order forward error at $\rho=0.7$ favors the stack in all six runs, while the
-first-order retrieval error favors the kernel on features by factors of $5.0$ to $9.9$ and the exact constrained
-retrieval by factors of $3.3$ to $4.5$. The identity of Proposition~\ref{prop:measure} closes to rounding, and all of
-the stack's net excess $\sum\Delta$ lies in the tenth of the entries with the smallest $g$. The Pearson correlation of
-$g$ and $\Delta$ is only $-0.014$, because $\Delta$ is heavy-tailed; the covariance, not the correlation, is the
-quantity the proposition needs.
-
-\section{What a fit for the retrieval guarantees and what it costs}\label{sec:training}
-
-Consider one output coordinate $c\in\{a,t,s\}$ at one band as a scalar regression on the state $x$, with training
-distribution $p$. The diagonal of the first-order retrieval risk, $\E_p[M_{cc}(x)\,e_c(x)^2]$, is $\E_p[M_{cc}]$ times
-the mean squared error under the distribution $p_c$ with
-\[
-\frac{dp_c}{dp}(x)=w_c(x)=\frac{M_{cc}(x)}{\E_p[M_{cc}]} .
-\]
-Fitting for the retrieval is therefore regression under covariate shift, with a likelihood ratio that is known in
-closed form rather than estimated; the off-diagonal terms of $M$ couple the coordinates but do not change this. The
-ratio is unbounded: $M_{aa}=\int q_\rho^4\,\nu(d\rho)/t^2$ and $M_{tt}=\int\rho^2q_\rho^2\,\nu(d\rho)/t^2$, so
-$\E_p[w_c^2]<\infty$ requires $\E_p[t^{-4}]<\infty$, which fails for a table whose transmissions come arbitrarily close
-to zero. Replacing $t$ by $\max\{t,\tau\}$ truncates the ratio at a level of order $\tau^{-2}$. For kernel ridge
-regression, the unweighted estimator with a suitable regularization is minimax optimal up to a logarithmic factor when
-the ratio is uniformly bounded, and when it is unbounded with a finite second moment the reweighting by the ratio
-truncated at a suitable level attains the minimax rate \cite{mpw}. A retrieval loss with a floor $\tau$ is that
-truncated reweighting, with a ratio the physics supplies.
-
-\subsection{The rate a weighted fit guarantees}
-
-Write $e_R=|e_a|+R|e_t|+R^2t|e_s|$ and $\bar\rho$ for the retrieval constrained to $[0,R]$, which satisfies
-$|\bar\rho-\rho|\le\min\{R,e_R/t\}$ at every entry \cite{shmalo2}.
-
-\begin{proposition}[the rate a weighted certificate buys]\label{prop:weighted-rate}
-Let $0\le\alpha\le1$ and suppose that $\E_p[t^{-2\alpha}e_R^2]\le\varepsilon^2$.
-\begin{enumerate}
-\item If $\alpha=1$, then $\E_p|\bar\rho-\rho|^2\le\varepsilon^2$.
-\item If $\alpha<1$ and $\Prob_p(t\le u)\le Au^\beta$ for $0<u\le u_0$, then for $\varepsilon\le
-u_0^{(\beta+2-2\alpha)/2}$,
-\[
-\E_p|\bar\rho-\rho|^2\le(R^2A+1)\,\varepsilon^{2\beta/(\beta+2-2\alpha)} .
-\]
-\end{enumerate}
-\end{proposition}
-
-\begin{proof}
-For every $\tau>0$ the pointwise bound gives $\E_p|\bar\rho-\rho|^2\le R^2\Prob_p(t\le\tau)+\E_p[t^{-2}e_R^2\1\{t>\tau\}]
-\le R^2\Prob_p(t\le\tau)+\tau^{2\alpha-2}\varepsilon^2$, since $t^{-2}\le t^{-2\alpha}\tau^{2\alpha-2}$ on $\{t>\tau\}$.
-At $\alpha=1$ let $\tau\to0$ and use $t>0$. Otherwise take $\tau=\varepsilon^{2/(\beta+2-2\alpha)}\le u_0$; then
-$\tau^\beta$ and $\tau^{2\alpha-2}\varepsilon^2$ both equal $\varepsilon^{2\beta/(\beta+2-2\alpha)}$.
-\end{proof}
-
-\begin{proposition}[the weighted exponent is attained]\label{prop:weighted-attained}
-Let $\beta>0$, $0\le\alpha<1$, $0<c<r_0<R$ and $\tau\in(0,1)$. Take $s=a=0$, $\rho=r_0$, $\Prob_p(t\le u)=u^\beta$ on
-$(0,1]$, and the predictor $\hat t=t$, $\hat s=0$, $\hat a=c\,t\,\1\{t\le\tau\}$. Then $\bar\rho-\rho=-c\,\1\{t\le\tau\}$,
-\[
-\begin{aligned}
-\E_p[t^{-2\alpha}e_R^2]&=\frac{c^2\beta}{\beta+2-2\alpha}\,\tau^{\beta+2-2\alpha}=:\varepsilon^2,\\
-\E_p|\bar\rho-\rho|^2&=c^2\tau^\beta
-=c^{\frac{4-4\alpha}{\beta+2-2\alpha}}\Bigl(\frac{\beta+2-2\alpha}{\beta}\Bigr)^{\frac{\beta}{\beta+2-2\alpha}}
-\varepsilon^{\frac{2\beta}{\beta+2-2\alpha}} .
-\end{aligned}
-\]
-At $\alpha=1$ the same predictor gives $\E_p|\bar\rho-\rho|^2=\E_p[t^{-2}e_R^2]$, so part~1 of
-Proposition~\ref{prop:weighted-rate} holds with equality.
-\end{proposition}
-
-\begin{proof}
-With $s=0$ the radiance is $L=r_0t$, and the retrieval gives $(L-\hat a)/\hat t=r_0-c\,\1\{t\le\tau\}$, which lies in
-$[0,R]$. The only error is $e_a$, hence $e_R=c\,t\,\1\{t\le\tau\}$ and
-$\E_p[t^{-2\alpha}e_R^2]=c^2\int_0^\tau u^{2-2\alpha}\beta u^{\beta-1}\,du$. Solving for $\tau$ and substituting into
-$c^2\tau^\beta$ gives the second identity.
-\end{proof}
-
-At $\alpha=0$ the exponent is the $2\beta/(\beta+2)$ of plain fitting, and it rises continuously to $2$ as
-$\alpha\to1$. If the plain fit reaches $\E_p[e_R^2]^{1/2}=O(n^{-r_0})$ and the fit certified at $\alpha$ reaches
-$\E_p[t^{-2\alpha}e_R^2]^{1/2}=O(n^{-r_\alpha})$, weighting gives the better guarantee exactly when
-$r_\alpha>r_0(\beta+2-2\alpha)/(\beta+2)$, a factor close to $1-\alpha$ for small $\beta$; at the EMIT value
-$\beta\approx0.12$ and $\alpha=1/2$ it is $0.53$.
-
-\subsection{The price of the weighting}\label{sec:price}
-
-For entry weights $w$ the effective sample size of a weighted fit on $n$ entries is $n\,\E_p[w]^2/\E_p[w^2]$
-\cite{kish}, and for the weights of the retrieval it is set by the transmission tail.
-
-\begin{proposition}[the effective sample size of retrieval weighting]\label{prop:neff}
-Let $0<\beta<2$ and suppose $F(u)=\Prob_p(t\le u)$ satisfies $F(u)/(Au^\beta)\to1$ as $u\to0$, with
-$\E_p[t^{-4}\1\{t>u_0\}]<\infty$ for some $u_0>0$. For the floored weights $w_\tau=\max\{t,\tau\}^{-2}$ and the cut
-weights $v_\tau=t^{-2}\1\{t>\tau\}$, as $\tau\to0$,
-\[
-\frac{\E_p[w_\tau]^2}{\E_p[w_\tau^2]}\sim\frac{4-\beta}{(2-\beta)^2}\,F(\tau),\qquad
-\frac{\E_p[v_\tau]^2}{\E_p[v_\tau^2]}\sim\frac{\beta(4-\beta)}{(2-\beta)^2}\,F(\tau).
-\]
-\end{proposition}
-
-\begin{proof}
-Integrating by parts, $\E_p[t^{-k}\1\{t>\tau\}]=-\tau^{-k}F(\tau)+k\int_\tau^\infty u^{-k-1}F(u)\,du$ for $k=2,4$. As
-$\tau\to0$ the integral over $[u_0,\infty)$ stays bounded, while over $(\tau,u_0)$ it is
-$\frac{A}{k-\beta}\tau^{\beta-k}(1+o(1))$ times $k$, which diverges because $\beta<2\le k$. Hence
-$\E_p[v_\tau]\sim A\frac{\beta}{2-\beta}\tau^{\beta-2}$ and $\E_p[v_\tau^2]\sim A\frac{\beta}{4-\beta}\tau^{\beta-4}$, and
-adding $\tau^{-2}F(\tau)$ and $\tau^{-4}F(\tau)$ gives $\E_p[w_\tau]\sim A\frac{2}{2-\beta}\tau^{\beta-2}$ and
-$\E_p[w_\tau^2]\sim A\frac{4}{4-\beta}\tau^{\beta-4}$.
-\end{proof}
-
-\begin{corollary}[where the floored weight sits]\label{cor:below}
-Under the hypotheses of Proposition~\ref{prop:neff},
-\[
-\frac{\E_p[w_\tau\1\{t\le\tau\}]}{\E_p[w_\tau]}\longrightarrow\frac{2-\beta}{2}\qquad(\tau\to0).
-\]
-\end{corollary}
-
-\begin{proof}
-The numerator is $\tau^{-2}F(\tau)\sim A\tau^{\beta-2}$ and the denominator is $A\frac{2}{2-\beta}\tau^{\beta-2}(1+o(1))$
-by the proof of Proposition~\ref{prop:neff}.
-\end{proof}
-
-A fit weighted for the retrieval learns, in effect, from about as many entries as lie below its floor, and most of its
-weight sits on entries that a retrieval at the same floor does not use. On the EMIT table ($\beta\approx0.12$; floors
-$uT_{\rm train}$ with $T_{\rm train}$ the median positive training transmission) the floored weights keep an effective
-fraction of $0.24$, $0.11$ and $0.07$ of the entries at $u=10^{-1},10^{-2},10^{-3}$, and $0.76$, $0.90$ and $0.92$ of
-their weight lies below the floor, against the limit $0.94$. The cut weights put none below the floor and keep an
-effective fraction of $0.13$, $0.024$ and $0.011$.
-
-The weight is concentrated in bands rather than in states. Write $\omega_i=\sum_bw_{ib}$ for the weight of state $i$ and
-$\pi_{ib}=w_{ib}/\omega_i$ for its spread over the $B$ bands. Over $m$ states,
-\[
-\frac{n_{\rm eff}}{n}=\frac{(\sum_i\omega_i)^2}{m\sum_i\omega_i^2}\cdot\frac{\sum_i\omega_i^2}{B\sum_i\omega_i^2\|\pi_i\|^2},
-\]
-the effective fraction of the states times a weighted harmonic mean of the effective number of bands per state,
-$1/\|\pi_i\|^2$, divided by $B$; the identity is $n_{\rm eff}/n=(\sum_{ib}w_{ib})^2/(mB\sum_{ib}w_{ib}^2)$ written out. On
-the training block of one EMIT split the two factors are $0.73$ and $0.095$ at $u=10^{-3}$, and $0.91$ and $0.27$ at
-$u=10^{-1}$: the floored weights keep nearly three quarters of the states and about $27$ of the $285$ bands, which
-carry $90\%$ of the weight. The eighteen bands $132$--$136$ and $195$--$207$, inside the water-vapour absorption near
-$1380$ and $1870$\,nm, have more than half of their entries below $10^{-3}T_{\rm train}$.
-
-Where the weight sits is not where the value of the objective sits, because the absolute errors are smallest where
-the transmission is (Figure~\ref{fig:weight}b). At the test residuals of the plain network of one EMIT split the
-entries below the floor carry $11\%$ of the floored objective for the path radiance and $43\%$ for the transmission at
-$u=10^{-1}$, and $82\%$ and $76\%$ at $u=10^{-3}$.
-
-These are fractions of the weight against the physical squared error. The networks of Section~\ref{sec:data} are
-fitted to outputs standardized band by band, and against their own loss the weight of an entry of the component $c$ is
-$w_{ib}\sigma_{cb}^2$, with $\sigma_{cb}$ the standard deviation of band $b$ over the training states. The band
-variances differ by orders of magnitude. On the EMIT table they cut the entry effective fraction of the floored
-weights of the path radiance to $0.072$, $0.021$ and $0.017$ at the three floors, a fifth to a quarter of the physical
-fraction below $u=10^{-1}$, and the effective number of training states, $(\sum_i\omega_i)^2/\sum_i\omega_i^2$, to
-$10{,}700$, $7{,}200$ and $8{,}900$ of $18{,}883$ (medians over ten splits; the direct and diffuse terms keep $5{,}700$
-to $10{,}100$). The cut weights keep about $7{,}000$ states of the path radiance at the two lower floors.
-
-A floored weight gives its largest value, $\tau^{-2}$, to every entry below the floor, and so to any evaluation of the
-forward code that failed and returned no transmission. In a band where the other transmissions are of the order of the
-median $T$, such an entry weighs as much as $(T/\tau)^2=u^{-2}$ ordinary ones, a million at $u=10^{-3}$, more than the
-table holds. The cut weights give it none, but an evaluation need not fail all at once. The EMIT table has two failed
-evaluations, states $4011$ and $7439$. Below about $800$\,nm their transmission and albedo agree with those of their
-neighbours in the input space. Between $797$ and $850$\,nm their fluxes fall to $10^{-4}$ of the neighbours' and their
-spherical albedo rises to $2$; from about $1030$\,nm on both fluxes are exactly zero, in $197$ of the $285$ bands, and the
-albedo is at least one in $227$ bands, exactly $2$ in $107$. No other state has an albedo of one or more. In the five
-bands from $812$ to $842$\,nm their transmission, a fifth down to a two-hundredth of the neighbours', is still above
-$10^{-2}T$, so the cut weights count these entries too, and their errors are as large as the fluxes themselves.
-Against the physical squared error they
-are two states in $23{,}313$ and change none of the fractions above by more than one percent. In the coordinates of
-training, where the weight of an entry carries the variance of its band, they are the only states below the floor in
-more than $160$ bands from $850$\,nm on, among them the near-infrared bands, where the path radiance varies more than
-anywhere outside the visible. On the eight splits that keep both in the training block they hold $16\%$ of the floored weight of
-the path radiance at $u=10^{-2}$ and $45\%$ at $u=10^{-3}$, and the effective number of training states falls to $75$
-and $10$. Section~\ref{sec:networks} fits the networks with and without them.
-
-\begin{figure}[t]
-\centering
-\includegraphics[width=\textwidth]{fig_weight}
-\caption{(a) The effective fraction $n_{\rm eff}/n$ of the floored weights $\max\{t,\tau\}^{-2}$ and of the cut weights
-$t^{-2}\1\{t>\tau\}$ over the entries of the physical domain of the EMIT table, $\tau=uT$ with $T$ the median
-transmission, and the limits of Proposition~\ref{prop:neff} at $\beta=0.12$. (b) On the test block of one EMIT split,
-the share of the floored weight on the entries below the floor, and the share of the floored objective's value there
-at the residuals of the plain network, for the path radiance and the transmission; the dotted line is the limit of
-Corollary~\ref{cor:below}.}\label{fig:weight}
-\end{figure}
-
-Mixing the two objectives buys effective sample size back once $\alpha$ is small against $\sqrt{\rho_\tau}$. With
-$\bar w_\tau=w_\tau/\E_p[w_\tau]$ and $\rho_\tau=1/\E_p[\bar w_\tau^2]$, the weights $w=(1-\alpha)+\alpha\bar w_\tau$
-have mean one and effective fraction $1/(1-\alpha^2+\alpha^2/\rho_\tau)$, while $\E_p[\bar w_\tau e_R^2]\le\E_p[w\,e_R^2]
-/\alpha$ keeps the retrieval certificate up to the factor $1/\alpha$. For the path radiance in the coordinates of
-training at $u=10^{-2}$, where $\rho_\tau=0.021$, the fraction is $0.89$, $0.35$ and $0.08$ at $\alpha=0.05$, $0.2$ and
-$0.5$.
-
-\begin{corollary}[rate against effective sample size]\label{cor:neff-rate}
-Under the hypotheses of Proposition~\ref{prop:neff}, suppose a plain fit on $n$ entries has $\E_p[e_R^2]\le Cn^{-\gamma}$
-and a fit with the normalized floored weights $\bar w_\tau$ has $\E_p[\bar w_\tau e_R^2]\le Cn_{\rm eff}^{-\gamma}$ with
-$n_{\rm eff}=n\,\E_p[w_\tau]^2/\E_p[w_\tau^2]$, for some $\gamma>0$. With the floor chosen as a power of $n$,
-\[
-\E_p|\bar\rho-\rho|^2=O\bigl(n^{-\beta\gamma/(2+\beta)}\bigr)\ \text{(plain)},\qquad
-\E_p|\bar\rho-\rho|^2=O\bigl(n^{-\beta\gamma/(2+\beta\gamma)}\bigr)\ \text{(floored weights)},
-\]
-so the weighted exponent is the larger exactly when $\gamma<1$.
-\end{corollary}
-
-\begin{proof}
-For both fits $\E_p|\bar\rho-\rho|^2\le R^2F(\tau)+\E_p[t^{-2}e_R^2\1\{t>\tau\}]$. For the plain fit the second term is
-at most $\tau^{-2}Cn^{-\gamma}$, and $\tau=n^{-\gamma/(2+\beta)}$ balances it against $R^2F(\tau)\sim R^2A\tau^\beta$.
-For the weighted fit $t^{-2}\1\{t>\tau\}\le w_\tau$, so the second term is at most $\E_p[w_\tau]\,Cn_{\rm eff}^{-\gamma}$,
-which by Proposition~\ref{prop:neff} is of order $\tau^{\beta-2}(n\tau^\beta)^{-\gamma}$; $\tau=n^{-\gamma/(2+\beta\gamma)}$
-balances it.
-\end{proof}
-
-On EMIT the learning curves of \cite{shmalo2} give mean-square exponents of about $0.8$ to $1.2$ on the first three
-components, and with $\beta\approx0.12$ the two exponents agree to within about one percent either way. Rates cannot
-decide whether weighting pays on this table; the constants decide it, and Section~\ref{sec:networks} measures them.
-
-\section{Choosing on the retrieval error}\label{sec:choosing}
-
-Fitting a model on a weighted objective pays the effective sample size of the entries. Choosing among a few candidates
-fitted on the forward error pays much less, because the choice is made on a sum over states.
-
-\begin{proposition}[choosing on a weighted criterion]\label{prop:select}
-Let $Z_1,\dots,Z_m$ be independent copies of a state $Z$ with $B$ entries, let $v_b(Z)\ge0$ be entry weights with state
-weight $\omega(Z)=\sum_bv_b(Z)\le\omega_{\max}$, and let $\ell_{k,b}(Z)\in[0,L]$ be the entry losses of $K$ candidates.
-Put $R_k=\E\sum_bv_b\ell_{k,b}$, let $\hat R_k$ be its mean over the $m$ states, and let
-$m_{\rm eff}=m\,\E[\omega]^2/\E[\omega^2]$. With probability at least $1-\delta$ the candidate $\hat k$ that minimizes
-$\hat R_k$ satisfies
-\[
-R_{\hat k}-\min_kR_k\le2L\,\E[\omega]\Bigl(\sqrt{\frac{2\log(2K/\delta)}{m_{\rm eff}}}
-+\frac{2\omega_{\max}}{3\,\E[\omega]}\,\frac{\log(2K/\delta)}{m}\Bigr).
-\]
-\end{proposition}
-
-\begin{proof}
-The state loss $X_k=\sum_bv_b\ell_{k,b}$ lies in $[0,L\omega_{\max}]$ and has
-$\operatorname{Var}X_k\le\E X_k^2\le L^2\E[\omega^2]=L^2\E[\omega]^2m/m_{\rm eff}$. With $x=\log(2K/\delta)$, Bernstein's
-inequality gives $|\hat R_k-R_k|\le\varepsilon$ with $\varepsilon=\sqrt{2x\operatorname{Var}X_k/m}+2L\omega_{\max}x/(3m)$
-except on an event of probability at most $\delta/K$, and a union bound over $k$ makes this hold for every $k$ with
-probability at least $1-\delta$. Then $R_{\hat k}\le\hat R_{\hat k}+\varepsilon\le\hat R_{k^\ast}+\varepsilon\le
-R_{k^\ast}+2\varepsilon$ for the best candidate $k^\ast$, and $2\varepsilon$ is at most the stated bound.
-\end{proof}
-
-The weights enter only through the effective number of states and the ratio $\omega_{\max}/\E[\omega]$. On an EMIT
-validation block of $m=2{,}098$ states the cut weights keep $1{,}962$, $1{,}831$ and $1{,}639$ effective states at
-$u=10^{-1},10^{-2},10^{-3}$, with $\omega_{\max}/\E[\omega]$ between $2.6$ and $3.0$, and the floored weights $1{,}917$,
-$1{,}763$ and $1{,}579$. For $K=32$ and $\delta=0.05$ the bound is $0.18$ to $0.20$ times $L\,\E[\omega]$, against
-$0.17$ with no weights at all: weighting the criterion raises the price of choosing by eight to eighteen percent, while
-it divides the effective data of a weighted fit by fourteen at $u=10^{-3}$.
-
-A convex stack is a choice of this kind with a continuum of candidates. For members with component errors $e^{(j)}$ and
-weights $w$ on a product $W$ of simplices, write $F(w)$ and $G(w)$ for the first-order forward and retrieval errors of
-the stack; both are convex quadratics in $w$.
-
-\begin{proposition}[the mixtures trace the frontier]\label{prop:pareto}
-Let $W$ be a product of simplices and $F(w)=w^\top Bw$, $G(w)=w^\top Aw$ with $A,B$ positive semidefinite. If $w^\ast\in
-W$ is weakly Pareto optimal for $(F,G)$, that is, no $w\in W$ has $F(w)<F(w^\ast)$ and $G(w)<G(w^\ast)$, then $w^\ast$
-minimizes $\alpha F+(1-\alpha)G$ over $W$ for some $\alpha\in[0,1]$.
-\end{proposition}
-
-\begin{proof}
-The set $S=\{(F(w),G(w))+u:\ w\in W,\ u\in[0,\infty)^2\}$ is convex, since $F$ and $G$ are convex and $W$ is convex.
-Weak optimality says that $(F(w^\ast),G(w^\ast))-(0,\infty)^2$ does not meet $S$, so the point lies on the boundary of $S$,
-and a supporting line gives $\lambda\neq0$ with $\lambda\cdot s\ge\lambda\cdot(F(w^\ast),G(w^\ast))$ for all $s\in S$.
-Since $S$ is closed upward, $\lambda\ge0$; normalize $\lambda$ to $(\alpha,1-\alpha)$.
-\end{proof}
-
-\begin{lemma}[the path is monotone]\label{lem:monotone}
-For $0\le\alpha_1<\alpha_2\le1$ let $w_i$ minimize $\alpha_iF+(1-\alpha_i)G$ over $W$. Then $F(w_2)\le F(w_1)$ and
-$G(w_2)\ge G(w_1)$.
-\end{lemma}
-
-\begin{proof}
-Write $x=F(w_1)-F(w_2)$ and $y=G(w_2)-G(w_1)$. Optimality of $w_1$ and of $w_2$ gives $\alpha_1x\le(1-\alpha_1)y$ and
-$(1-\alpha_2)y\le\alpha_2x$. Multiplying the first by $1-\alpha_2$ and the second by $1-\alpha_1$ and chaining,
-$(1-\alpha_2)\alpha_1x\le(1-\alpha_1)\alpha_2x$, that is $(\alpha_2-\alpha_1)x\ge0$, so $x\ge0$. Then the first
-inequality gives $(1-\alpha_1)y\ge\alpha_1x\ge0$, so $y\ge0$.
-\end{proof}
-
-The proof of Proposition~\ref{prop:pareto} uses only that $W$ is convex and that $F$ and $G$ are convex on it, so the
-same holds for any convex class of predictors, for instance the functions of norm at most $r$ in a reproducing kernel
-Hilbert space; kernel ridge regression with the entry weights $(1-\alpha)+\alpha g/\bar g$ is the penalized form of
-that problem.
+The weights of this paper come from a bound on the retrieval error. The retrieval constrained to $[0,R]$, $\bar\rho$,
+satisfies $|\bar\rho-\rho|\le\min\{R,e_R/t\}$ with $e_R=|e_a|+R|e_t|+R^2t|e_s|$ at every entry \cite{shmalo2}, and the
+transmission in the denominator is floored at $\tau=uT_{\rm train}$, where $T_{\rm train}$ is the median positive
+transmission of the training block and $u$ is called the floor. The \emph{floored} weights are $w_\tau=\max\{t,\tau\}^{-2}$
+and the \emph{cut} weights $v_\tau=t^{-2}\1\{t>\tau\}$, which give no weight below the floor; normalized to mean one,
+$\bar w_\tau=w_\tau/\E[w_\tau]$. Two milder forms temper the floored weights: the \emph{flattened} weights
+$\bar w_\tau^{\,\kappa}$ with $0<\kappa<1$, renormalized to mean one, the device proposed for covariate shift in
+\cite{shimodaira}, and the \emph{mixed} weights $(1-\alpha)+\alpha\bar w_\tau$ with $0<\alpha<1$, which keep part of the
+plain objective. A fit on $n$ entries with weights $w$ has the effective sample size $n_{\rm eff}=n\,\E[w]^2/\E[w^2]$
+\cite{kish}, and $n_{\rm eff}/n$ is its effective fraction. Section~\ref{sec:theory} derives the exact retrieval error,
+the change of measure between the two rankings, and what these weights guarantee and cost.
 
 \section{Tables, emulators and scores}\label{sec:data}
 
@@ -576,9 +233,13 @@ state in $\mathbb R^6$ (aerosol optical depth, surface elevation, water-vapour c
 zenith angles), and the output is four spectral components on the $285$-point EMIT grid from $381$ to $2493$\,nm: path
 radiance $Y_1=a$, direct and diffuse fluxes $Y_2$ and $Y_3$ with $t=Y_2+Y_3$, and spherical albedo $Y_4=s$
 \cite{shmalo2}. Each split draws a test block of $2{,}331$ states and a validation block of $2{,}098$ from a seeded
-permutation and fits on the remaining $18{,}884$; the splits are the ten seeds $101$--$110$ of \cite{shmalo2}. The two
-failed evaluations of Section~\ref{sec:price}, states $4011$ and $7439$, are both in the training block on eight splits;
-split $104$ has one in its test block and split $105$ one in its validation block. The networks of
+permutation and fits on the remaining $18{,}884$; the splits are the ten seeds $101$--$110$ of \cite{shmalo2}. The table
+holds two failed evaluations of the code, states $4011$ and $7439$. Below about $800$\,nm their transmission and albedo
+agree with those of their neighbours in the input space. Between $797$ and $850$\,nm their fluxes fall to $10^{-4}$ of
+the neighbours' and their spherical albedo rises to $2$; from about $1030$\,nm on both fluxes are exactly zero, in
+$197$ of the $285$ bands, and the albedo is at least one in $227$ bands, exactly $2$ in $107$. No other state has an
+albedo of one or more. Both are in the training block on eight splits; split $104$ has one in its test block and split
+$105$ one in its validation block. The networks of
 Section~\ref{sec:networks} are fitted with them and, removed from whichever block holds them, without them; the members
 of the stacks of Section~\ref{sec:stacks}, the kernels of Section~\ref{sec:kernels} and the networks of
 Section~\ref{sec:epochs} are fitted on the table as provided.
@@ -633,6 +294,79 @@ counted as a failure and left out of the percentile \cite{shmalo2}.
 
 \section{Experiments}\label{sec:experiments}
 
+\subsection{The two rankings on the EMIT table}\label{sec:rankings}
+
+The convex stack and the kernel on learned features of \cite{shmalo2} are ordered differently by the two errors. On
+three splits at two network widths and on the physical domain above $10^{-3}T_{\rm train}$, the first-order forward
+error at $\rho=0.7$ favors the stack in all six runs, while the first-order retrieval error favors the kernel on features
+by factors of $5.0$ to $9.9$ and the exact constrained retrieval by factors of $3.3$ to $4.5$. The transmissions of the
+physical domain range over more than twenty orders of magnitude on this table, and the forward error, which weighs an
+entry by $g=t^2/q^4$ relative to the retrieval (Section~\ref{sec:setting}), is blind to the entries that set the tail of
+the retrieval error. With $\Delta=d_f^2-d_h^2$ for the stack $f$ and the kernel $h$, all of the stack's net excess
+$\sum\Delta$ lies in the tenth of the entries with the smallest $g$, and the identity of Proposition~\ref{prop:measure},
+which splits the two orders, closes to rounding. The Pearson correlation of $g$ and $\Delta$ is only $-0.014$, because
+$\Delta$ is heavy-tailed; the covariance, not the correlation, is the quantity the proposition needs.
+
+\subsection{Where the retrieval weight sits}\label{sec:weightsits}
+
+A fit weighted for the retrieval learns, in effect, from about as many entries as lie below its floor, and most of its
+weight sits on entries that a retrieval at the same floor does not use (Proposition~\ref{prop:neff} and
+Corollary~\ref{cor:below}). On the EMIT table the share of the entries with transmission at most $x$ behaves as
+$Ax^\beta$ for small $x$, with $\beta\approx0.12$, and the floored weights keep an effective fraction of $0.24$, $0.11$ and $0.07$ of the entries at $u=10^{-1},10^{-2},10^{-3}$, and $0.76$, $0.90$ and $0.92$ of
+their weight lies below the floor, against the limit $0.94$ of Corollary~\ref{cor:below}. The cut weights put none below the floor and keep an
+effective fraction of $0.13$, $0.024$ and $0.011$.
+
+The weight is concentrated in bands rather than in states. Write $\omega_i=\sum_bw_{ib}$ for the weight of state $i$ and
+$\pi_{ib}=w_{ib}/\omega_i$ for its spread over the $B$ bands. Over $m$ states,
+\[
+\frac{n_{\rm eff}}{n}=\frac{(\sum_i\omega_i)^2}{m\sum_i\omega_i^2}\cdot\frac{\sum_i\omega_i^2}{B\sum_i\omega_i^2\|\pi_i\|^2},
+\]
+the effective fraction of the states times a weighted harmonic mean of the effective number of bands per state,
+$1/\|\pi_i\|^2$, divided by $B$; the identity is $n_{\rm eff}/n=(\sum_{ib}w_{ib})^2/(mB\sum_{ib}w_{ib}^2)$ written out. On
+the training block of one EMIT split the two factors are $0.73$ and $0.095$ at $u=10^{-3}$, and $0.91$ and $0.27$ at
+$u=10^{-1}$: the floored weights keep nearly three quarters of the states and about $27$ of the $285$ bands, which
+carry $90\%$ of the weight. The eighteen bands $132$--$136$ and $195$--$207$, inside the water-vapour absorption near
+$1380$ and $1870$\,nm, have more than half of their entries below $10^{-3}T_{\rm train}$.
+
+Where the weight sits is not where the value of the objective sits, because the absolute errors are smallest where
+the transmission is (Figure~\ref{fig:weight}b). At the test residuals of the plain network of one EMIT split the
+entries below the floor carry $11\%$ of the floored objective for the path radiance and $43\%$ for the transmission at
+$u=10^{-1}$, and $82\%$ and $76\%$ at $u=10^{-3}$.
+
+These are fractions of the weight against the physical squared error. The networks of Section~\ref{sec:data} are
+fitted to outputs standardized band by band, and against their own loss the weight of an entry of the component $c$ is
+$w_{ib}\sigma_{cb}^2$, with $\sigma_{cb}$ the standard deviation of band $b$ over the training states. The band
+variances differ by orders of magnitude. On the EMIT table they cut the entry effective fraction of the floored
+weights of the path radiance to $0.072$, $0.021$ and $0.017$ at the three floors, a fifth to a quarter of the physical
+fraction below $u=10^{-1}$, and the effective number of training states, $(\sum_i\omega_i)^2/\sum_i\omega_i^2$, to
+$10{,}700$, $7{,}200$ and $8{,}900$ of $18{,}883$ (medians over ten splits; the direct and diffuse terms keep $5{,}700$
+to $10{,}100$). The cut weights keep about $7{,}000$ states of the path radiance at the two lower floors.
+
+A floored weight gives its largest value, $\tau^{-2}$, to every entry below the floor, and so to any evaluation of the
+forward code that failed and returned no transmission. In a band where the other transmissions are of the order of the
+median $T$, such an entry weighs as much as $(T/\tau)^2=u^{-2}$ ordinary ones, a million at $u=10^{-3}$, more than the
+table holds. The cut weights give it none, but an evaluation need not fail all at once. The two failed evaluations of the EMIT table (Section~\ref{sec:data}) fail by stages:
+in the five bands from $812$ to $842$\,nm their transmission, a fifth down to a two-hundredth of the neighbours', is still above
+$10^{-2}T$, so the cut weights count these entries too, and their errors are as large as the fluxes themselves.
+Against the physical squared error they
+are two states in $23{,}313$ and change none of the fractions above by more than one percent. In the coordinates of
+training, where the weight of an entry carries the variance of its band, they are the only states below the floor in
+more than $160$ bands from $850$\,nm on, among them the near-infrared bands, where the path radiance varies more than
+anywhere outside the visible. On the eight splits that keep both in the training block they hold $16\%$ of the floored weight of
+the path radiance at $u=10^{-2}$ and $45\%$ at $u=10^{-3}$, and the effective number of training states falls to $75$
+and $10$. Section~\ref{sec:networks} fits the networks with and without them.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\textwidth]{fig_weight}
+\caption{(a) The effective fraction $n_{\rm eff}/n$ of the floored weights $\max\{t,\tau\}^{-2}$ and of the cut weights
+$t^{-2}\1\{t>\tau\}$ over the entries of the physical domain of the EMIT table, $\tau=uT$ with $T$ the median
+transmission, and the limits of Proposition~\ref{prop:neff} at $\beta=0.12$. (b) On the test block of one EMIT split,
+the share of the floored weight on the entries below the floor, and the share of the floored objective's value there
+at the residuals of the plain network, for the path radiance and the transmission; the dotted line is the limit of
+Corollary~\ref{cor:below}.}\label{fig:weight}
+\end{figure}
+
 \subsection{Networks fitted on the retrieval error}\label{sec:networks}
 
 The network of Section~\ref{sec:data} is trained on each component with the weights of the first-order bound,
@@ -641,8 +375,8 @@ J_u=\E\Bigl[\frac{e_a^2+R^2(e_{Y_2}^2+e_{Y_3}^2)+R^4t^2e_s^2}{\max\{t,uT_{\rm tr
 \]
 normalized to mean one on the training block of each component and stopped on the same weighted loss of the
 validation block (the \emph{floored} arms). Three variants change one thing each: the floored weights at $u=10^{-2}$
-stopped on the plain validation loss, the mixed weights $(1-\alpha)+\alpha\bar w_\tau$ of Section~\ref{sec:price} with
-$\alpha=0.2$ at $u=10^{-2}$, and the cut weights $v_\tau$ of Proposition~\ref{prop:neff} at $u=10^{-2}$, normalized and
+stopped on the plain validation loss, the mixed weights $(1-\alpha)+\alpha\bar w_\tau$ of Section~\ref{sec:setting} with
+$\alpha=0.2$ at $u=10^{-2}$, and the cut weights $v_\tau$ at $u=10^{-2}$, normalized and
 used for stopping in the same way. The \emph{flattened} arms raise the floored weights to a power $\kappa\in(0,1)$, the
 device Shimodaira proposed for covariate shift \cite{shimodaira}, and normalize them to mean one in the same way: at
 $u=10^{-2}$ with $\kappa=1/4$ and $\kappa=1/2$, and with $\kappa=1/4$ stopped on the plain validation loss at $u=10^{-2}$
@@ -721,7 +455,7 @@ The joint arms, one network for all four components, trade the same way and a li
 all-band tail falls by $27$ points on every split for a rise of $0.17$ percentage points in the radiance error, and at
 $10^{-3}$ the physical tails rise by $12$ to $24$ points.
 The objective is a mean, and at $u=10^{-3}$ most of its value sits on the entries below the floor
-(Section~\ref{sec:price}); a network can lower it there while the 95th percentile, which the rest of the physical
+(Section~\ref{sec:weightsits}); a network can lower it there while the 95th percentile, which the rest of the physical
 domain sets, grows. Nor are the lower floors attained best by the networks fitted on them. On held-out states the
 lowest $J_{10^{-2}}$ belongs to the network fitted at $u=10^{-1}$ on nine splits of ten and to the mixed weights on
 the tenth, never to the network fitted on it (median factor $0.42$ against $0.84$), and the lowest $J_{10^{-3}}$ to a
@@ -789,7 +523,7 @@ of nine, nine and ten of the ten splits at $u=10^{-1},10^{-2},10^{-3}$, by media
 while on the training blocks of splits $101$--$103$ the weighted network reaches $0.03$ to $0.06$ of the plain network's
 value: it fits the entries that carry its objective and does not generalize from them. Two effects of the failed states combine. At
 $u=10^{-2}$ and $10^{-3}$ they leave the floored weights of the path radiance $75$ and $10$ effective training states
-(Section~\ref{sec:price}). At $u=10^{-1}$ they hold under one percent of the weight, but no smooth fit returns a zero
+(Section~\ref{sec:weightsits}). At $u=10^{-1}$ they hold under one percent of the weight, but no smooth fit returns a zero
 flux between neighbours with ordinary ones, and their share of the value of the objective is far larger. On split
 $104$, whose test block holds one of them, the ratio of the floored objective of the plain network's residuals to their
 plain mean square is $23$ for the direct flux and $86$ for the diffuse flux at $u=10^{-1}$, against $0.12$ to $0.42$ and
@@ -993,7 +727,7 @@ and for the input-scaled kernel the relative length scales of the six inputs, by
 search can be run on a criterion for the retrieval instead of the forward error. The criteria for such choices are
 computed per component on the validation block, as the relative root-mean-square error weighted as in $J_u$: with the
 weights floored at $uT_{\rm train}$ (the \emph{floored} criterion) or cut there, zero below (the \emph{cut} criterion,
-with the weights $v_\tau$ of Proposition~\ref{prop:neff}). The kernel is fitted with the chosen parameters on the plain
+with the weights $v_\tau$ of Section~\ref{sec:setting}). The kernel is fitted with the chosen parameters on the plain
 squared error, and every run also chooses on the forward error, so that the differences are paired.
 
 For the input-scaled kernel the retrieval criteria choose different parameters, and the choice pays in the tail. On
@@ -1005,7 +739,7 @@ as well. The chosen metric moves toward the water-vapour column: its share of th
 $0.70$ for the direct flux, from $0.26$ to $0.54$ for the diffuse flux and from $0.14$ to $0.42$ for the path radiance
 (medians over the ten splits). On the table as provided, split $105$, whose validation block holds one of the failed
 evaluations, is where every choice goes wrong, the cut ones included, since that state's collapsing fluxes near
-$830$\,nm lie above the floor (Section~\ref{sec:price}); the floored criterion there picks a metric that raises the tail
+$830$\,nm lie above the floor (Section~\ref{sec:weightsits}); the floored criterion there picks a metric that raises the tail
 above $10^{-3}T_{\rm train}$ by $18$ points. For the isotropic kernel, which has no metric to move, every retrieval
 criterion raises the tail above $10^{-3}T_{\rm train}$ on average, by $0.03$ to $0.04$ points at $u=10^{-1}$ and by up to
 $6$ points at $10^{-3}$.
@@ -1030,7 +764,232 @@ failed evaluations and whose entries both criteria count at that floor: the cut 
 epochs $83$ and $52$ and the floored one at epochs $18$ and $6$, against $150$ and $135$ for the plain rule, and the
 radiance error rises by $0.26$ and $1.24$ percentage points.
 
-\section{Discussion}
+\section{Theory}\label{sec:theory}
+
+This section gives the results behind the experiments of Section~\ref{sec:experiments}: the exact retrieval error and
+its metric (Section~\ref{sec:exact}), the change of measure between the forward and retrieval rankings
+(Section~\ref{sec:measure}), what a fit for the retrieval guarantees and what it costs (Section~\ref{sec:training}), and
+the price of choosing on the retrieval error (Section~\ref{sec:choosing}). The proofs are in Appendix~\ref{app:proofs}.
+
+\subsection{The retrieval error of an emulator}\label{sec:exact}
+
+With the predicted components $(\hat a,\hat t,\hat s)=(a+e_a,t+e_t,s+e_s)$, the retrieval $\hat\rho$ and
+$q=1-\rho s$ of Section~\ref{sec:setting}, the retrieval error has an exact closed form.
+
+\begin{lemma}[exact form of the retrieval error]\label{lem:exact}
+Put
+\[
+\ell=-\frac{q}{t}\,(q\,e_a+\rho\,e_t)-\rho^2 e_s,\qquad
+\delta=\frac{q}{t}\,(e_t-s\,e_a)+\rho\,e_s-\frac{q}{t}\,e_a e_s .
+\]
+Whenever the predicted denominator is nonzero,
+\[
+\hat\rho-\rho=\frac{\ell+(\rho q/t)\,e_a e_s}{1+\delta}.
+\]
+\end{lemma}
+
+\begin{corollary}[first order]\label{cor:first}
+As the component errors tend to zero relative to $t$,
+\[
+\hat\rho-\rho=\ell+O\!\left(\frac{|e|^2}{t^2}\right),\qquad
+\ell=-\frac{q^2}{t}\bigl(\hat L(\rho)-L(\rho)\bigr)+O\!\left(\frac{|e|^2}{t^2}\right),
+\]
+where $\hat L(\rho)=\hat a+\rho\hat t/(1-\rho\hat s)$ and $|e|=|e_a|+|e_t|+t|e_s|$. The retrieval error is the forward
+error at $\rho$ divided by the slope $\partial_\rho L=t/q^2$.
+\end{corollary}
+
+Let $\nu$ be a probability measure on the reflectances of interest in $(0,R]$, and write $e=(e_a,e_t,e_s)^\top$ and
+\[
+v_\rho=\left(\frac{q_\rho^2}{t},\ \frac{\rho q_\rho}{t},\ \rho^2\right)^{\!\top},\qquad
+M(t,s)=\int v_\rho v_\rho^\top\,\nu(d\rho),\qquad q_\rho=1-\rho s .
+\]
+By Corollary~\ref{cor:first}, $\int(\hat\rho-\rho)^2\,\nu(d\rho)=e^\top M(t,s)\,e+O(|e|^3/t^3)$ at every entry, so the
+first-order mean squared retrieval error of an emulator over an evaluation distribution is the mean of a Mahalanobis
+norm of its component errors, with a metric that depends on the state and the band only through $(t,s)$.
+
+\begin{proposition}[rank of the metric]\label{prop:rank}
+If $\nu$ is a point mass, $M$ has rank one. If the support of $\nu$ contains at least three points, $M$ is positive
+definite for every $t>0$ and $s\in[0,1)$.
+\end{proposition}
+
+\begin{remark}
+At a single reflectance the retrieval sees one combination of the three component errors, $v_\rho^\top e$, and is
+blind to the two directions orthogonal to $v_\rho$. For small $t$ the first two coordinates of $v_\rho$ scale as $1/t$
+and the third does not, so path-radiance and transmission errors are weighted by $1/t^2$ and the albedo error by a
+constant, in agreement with the transfer inequality $|\bar\rho-\rho|\le e_R/t$, $e_R=|e_a|+R|e_t|+R^2t|e_s|$, of
+\cite{shmalo2}, where the albedo enters as $R^2t|e_s|/t=R^2|e_s|$.
+\end{remark}
+
+\subsection{Forward and retrieval rankings differ by a change of measure}\label{sec:measure}
+
+Fix $\rho$ and write $d_f=v_\rho^\top e_f$ for an emulator $f$ with component errors $e_f$. By
+Corollary~\ref{cor:first}, to first order the retrieval error is $\hat\rho_f-\rho=-d_f$ and the forward error is
+$r_f=\hat L_f(\rho)-L(\rho)=(t/q^2)\,d_f$. Let $p$ be a distribution over the entries, a state and a band, with
+$\E_p[d_f^2]<\infty$, and put $g=t^2/q^4$.
+
+\begin{proposition}[change of measure]\label{prop:measure}
+If $0<\E_p[g]<\infty$, then $\E_p[r_f^2]=\E_p[g]\,\E_{p_g}[d_f^2]$ with $dp_g/dp=g/\E_p[g]$. Two emulators $f,h$ are
+ordered by the forward squared error as they are ordered by the squared retrieval error under $p_g$. The orders under
+$p$ and $p_g$ disagree, $\E_p[r_f^2]<\E_p[r_h^2]$ while $\E_p[d_f^2]>\E_p[d_h^2]$, exactly when $\Delta=d_f^2-d_h^2$
+satisfies
+\[
+\E_p[\Delta]>0\quad\text{and}\quad \mathrm{Cov}_p(g,\Delta)<-\E_p[g]\,\E_p[\Delta].
+\]
+\end{proposition}
+
+Relative to the retrieval, the forward metric gives an entry of transmission $t$ a weight of order $t^2$, so an
+emulator whose excess squared error sits at small transmission can win on the forward metric and lose on the
+retrieval; Section~\ref{sec:rankings} measures this on the EMIT table.
+
+\subsection{What a fit for the retrieval guarantees and what it costs}\label{sec:training}
+
+Consider one output coordinate $c\in\{a,t,s\}$ at one band as a scalar regression on the state $x$, with training
+distribution $p$. The diagonal of the first-order retrieval risk, $\E_p[M_{cc}(x)\,e_c(x)^2]$, is $\E_p[M_{cc}]$ times
+the mean squared error under the distribution $p_c$ with
+\[
+\frac{dp_c}{dp}(x)=w_c(x)=\frac{M_{cc}(x)}{\E_p[M_{cc}]} .
+\]
+Fitting for the retrieval is therefore regression under covariate shift, with a likelihood ratio that is known in
+closed form rather than estimated; the off-diagonal terms of $M$ couple the coordinates but do not change this. The
+ratio is unbounded: $M_{aa}=\int q_\rho^4\,\nu(d\rho)/t^2$ and $M_{tt}=\int\rho^2q_\rho^2\,\nu(d\rho)/t^2$, so
+$\E_p[w_c^2]<\infty$ requires $\E_p[t^{-4}]<\infty$, which fails for a table whose transmissions come arbitrarily close
+to zero. Replacing $t$ by $\max\{t,\tau\}$ truncates the ratio at a level of order $\tau^{-2}$. For kernel ridge
+regression, the unweighted estimator with a suitable regularization is minimax optimal up to a logarithmic factor when
+the ratio is uniformly bounded, and when it is unbounded with a finite second moment the reweighting by the ratio
+truncated at a suitable level attains the minimax rate \cite{mpw}. A retrieval loss with a floor $\tau$ is that
+truncated reweighting, with a ratio the physics supplies.
+
+\subsubsection{The rate a weighted fit guarantees}
+
+Write $e_R=|e_a|+R|e_t|+R^2t|e_s|$ and $\bar\rho$ for the retrieval constrained to $[0,R]$, which satisfies
+$|\bar\rho-\rho|\le\min\{R,e_R/t\}$ at every entry \cite{shmalo2}.
+
+\begin{proposition}[the rate a weighted certificate buys]\label{prop:weighted-rate}
+Let $0\le\alpha\le1$ and $\E_p[t^{-2\alpha}e_R^2]\le\varepsilon^2$.
+\begin{enumerate}
+\item If $\alpha=1$, then $\E_p|\bar\rho-\rho|^2\le\varepsilon^2$.
+\item If $\alpha<1$ and $\Prob_p(t\le u)\le Au^\beta$ for $0<u\le u_0$, then for $\varepsilon\le
+u_0^{(\beta+2-2\alpha)/2}$,
+\[
+\E_p|\bar\rho-\rho|^2\le(R^2A+1)\,\varepsilon^{2\beta/(\beta+2-2\alpha)} .
+\]
+\end{enumerate}
+\end{proposition}
+
+\begin{proposition}[the weighted exponent is attained]\label{prop:weighted-attained}
+Let $\beta>0$, $0\le\alpha<1$, $0<c<r_0<R$ and $\tau\in(0,1)$. Take $s=a=0$, $\rho=r_0$, $\Prob_p(t\le u)=u^\beta$ on
+$(0,1]$, and the predictor $\hat t=t$, $\hat s=0$, $\hat a=c\,t\,\1\{t\le\tau\}$. Then $\bar\rho-\rho=-c\,\1\{t\le\tau\}$,
+\[
+\begin{aligned}
+\E_p[t^{-2\alpha}e_R^2]&=\frac{c^2\beta}{\beta+2-2\alpha}\,\tau^{\beta+2-2\alpha}=:\varepsilon^2,\\
+\E_p|\bar\rho-\rho|^2&=c^2\tau^\beta
+=c^{\frac{4-4\alpha}{\beta+2-2\alpha}}\Bigl(\frac{\beta+2-2\alpha}{\beta}\Bigr)^{\frac{\beta}{\beta+2-2\alpha}}
+\varepsilon^{\frac{2\beta}{\beta+2-2\alpha}} .
+\end{aligned}
+\]
+At $\alpha=1$ the same predictor gives $\E_p|\bar\rho-\rho|^2=\E_p[t^{-2}e_R^2]$, so part~1 of
+Proposition~\ref{prop:weighted-rate} holds with equality.
+\end{proposition}
+
+At $\alpha=0$ the exponent is the $2\beta/(\beta+2)$ of plain fitting, and it rises continuously to $2$ as
+$\alpha\to1$. If the plain fit reaches $\E_p[e_R^2]^{1/2}=O(n^{-r_0})$ and the fit certified at $\alpha$ reaches
+$\E_p[t^{-2\alpha}e_R^2]^{1/2}=O(n^{-r_\alpha})$, weighting gives the better guarantee exactly when
+$r_\alpha>r_0(\beta+2-2\alpha)/(\beta+2)$, a factor close to $1-\alpha$ for small $\beta$; at the EMIT value
+$\beta\approx0.12$ and $\alpha=1/2$ it is $0.53$.
+
+\subsubsection{The price of the weighting}\label{sec:price}
+
+For entry weights $w$ the effective sample size of a weighted fit on $n$ entries is $n\,\E_p[w]^2/\E_p[w^2]$
+\cite{kish}, and for the weights of the retrieval it is set by the transmission tail.
+
+\begin{proposition}[the effective sample size of retrieval weighting]\label{prop:neff}
+Let $0<\beta<2$ and suppose $F(u)=\Prob_p(t\le u)$ satisfies $F(u)/(Au^\beta)\to1$ as $u\to0$, with
+$\E_p[t^{-4}\1\{t>u_0\}]<\infty$ for some $u_0>0$. For the floored weights $w_\tau=\max\{t,\tau\}^{-2}$ and the cut
+weights $v_\tau=t^{-2}\1\{t>\tau\}$, as $\tau\to0$,
+\[
+\frac{\E_p[w_\tau]^2}{\E_p[w_\tau^2]}\sim\frac{4-\beta}{(2-\beta)^2}\,F(\tau),\qquad
+\frac{\E_p[v_\tau]^2}{\E_p[v_\tau^2]}\sim\frac{\beta(4-\beta)}{(2-\beta)^2}\,F(\tau).
+\]
+\end{proposition}
+
+\begin{corollary}[where the floored weight sits]\label{cor:below}
+Under the hypotheses of Proposition~\ref{prop:neff},
+\[
+\frac{\E_p[w_\tau\1\{t\le\tau\}]}{\E_p[w_\tau]}\longrightarrow\frac{2-\beta}{2}\qquad(\tau\to0).
+\]
+\end{corollary}
+
+A fit weighted for the retrieval therefore learns, in effect, from about as many entries as lie below its floor,
+and most of its weight sits on entries that a retrieval at the same floor does not use; Section~\ref{sec:weightsits}
+measures both on the EMIT table.
+
+Mixing the two objectives buys effective sample size back once $\alpha$ is small against $\sqrt{\rho_\tau}$. With
+$\bar w_\tau=w_\tau/\E_p[w_\tau]$ and $\rho_\tau=1/\E_p[\bar w_\tau^2]$, the weights $w=(1-\alpha)+\alpha\bar w_\tau$
+have mean one and effective fraction $1/(1-\alpha^2+\alpha^2/\rho_\tau)$, while $\E_p[\bar w_\tau e_R^2]\le\E_p[w\,e_R^2]
+/\alpha$ keeps the retrieval certificate up to the factor $1/\alpha$. For the path radiance in the coordinates of
+training at $u=10^{-2}$, where $\rho_\tau=0.021$, the fraction is $0.89$, $0.35$ and $0.08$ at $\alpha=0.05$, $0.2$ and
+$0.5$.
+
+\begin{corollary}[rate against effective sample size]\label{cor:neff-rate}
+Under the hypotheses of Proposition~\ref{prop:neff}, suppose a plain fit on $n$ entries has $\E_p[e_R^2]\le Cn^{-\gamma}$
+and a fit with the normalized floored weights $\bar w_\tau$ has $\E_p[\bar w_\tau e_R^2]\le Cn_{\rm eff}^{-\gamma}$ with
+$n_{\rm eff}=n\,\E_p[w_\tau]^2/\E_p[w_\tau^2]$, for some $\gamma>0$. With the floor chosen as a power of $n$,
+\[
+\E_p|\bar\rho-\rho|^2=O\bigl(n^{-\beta\gamma/(2+\beta)}\bigr)\ \text{(plain)},\qquad
+\E_p|\bar\rho-\rho|^2=O\bigl(n^{-\beta\gamma/(2+\beta\gamma)}\bigr)\ \text{(floored weights)},
+\]
+so the weighted exponent is the larger exactly when $\gamma<1$.
+\end{corollary}
+
+On EMIT the learning curves of \cite{shmalo2} give mean-square exponents of about $0.8$ to $1.2$ on the first three
+components, and with $\beta\approx0.12$ the two exponents agree to within about one percent either way. Rates cannot
+decide whether weighting pays on this table; the constants decide it, and Section~\ref{sec:networks} measures them.
+
+\subsection{Choosing on the retrieval error}\label{sec:choosing}
+
+Fitting a model on a weighted objective pays the effective sample size of the entries. Choosing among a few candidates
+fitted on the forward error pays much less, because the choice is made on a sum over states.
+
+\begin{proposition}[choosing on a weighted criterion]\label{prop:select}
+Let $Z_1,\dots,Z_m$ be independent copies of a state $Z$ with $B$ entries, let $v_b(Z)\ge0$ be entry weights with state
+weight $\omega(Z)=\sum_bv_b(Z)\le\omega_{\max}$, and let $\ell_{k,b}(Z)\in[0,L]$ be the entry losses of $K$ candidates.
+Put $R_k=\E\sum_bv_b\ell_{k,b}$, let $\hat R_k$ be its mean over the $m$ states, and let
+$m_{\rm eff}=m\,\E[\omega]^2/\E[\omega^2]$. With probability at least $1-\delta$ the candidate $\hat k$ that minimizes
+$\hat R_k$ satisfies
+\[
+R_{\hat k}-\min_kR_k\le2L\,\E[\omega]\Bigl(\sqrt{\frac{2\log(2K/\delta)}{m_{\rm eff}}}
++\frac{2\omega_{\max}}{3\,\E[\omega]}\,\frac{\log(2K/\delta)}{m}\Bigr).
+\]
+\end{proposition}
+
+The weights enter only through the effective number of states and the ratio $\omega_{\max}/\E[\omega]$. On an EMIT
+validation block of $m=2{,}098$ states the cut weights keep $1{,}962$, $1{,}831$ and $1{,}639$ effective states at
+$u=10^{-1},10^{-2},10^{-3}$, with $\omega_{\max}/\E[\omega]$ between $2.6$ and $3.0$, and the floored weights $1{,}917$,
+$1{,}763$ and $1{,}579$. For $K=32$ and $\delta=0.05$ the bound is $0.18$ to $0.20$ times $L\,\E[\omega]$, against
+$0.17$ with no weights at all: weighting the criterion raises the price of choosing by eight to eighteen percent, while
+it divides the effective data of a weighted fit by fourteen at $u=10^{-3}$.
+
+A convex stack is a choice of this kind with a continuum of candidates. For members with component errors $e^{(j)}$ and
+weights $w$ on a product $W$ of simplices, write $F(w)$ and $G(w)$ for the first-order forward and retrieval errors of
+the stack; both are convex quadratics in $w$.
+
+\begin{proposition}[the mixtures trace the frontier]\label{prop:pareto}
+Let $W$ be a product of simplices and $F(w)=w^\top Bw$, $G(w)=w^\top Aw$ with $A,B$ positive semidefinite. If $w^\ast\in
+W$ is weakly Pareto optimal for $(F,G)$, that is, no $w\in W$ has $F(w)<F(w^\ast)$ and $G(w)<G(w^\ast)$, then $w^\ast$
+minimizes $\alpha F+(1-\alpha)G$ over $W$ for some $\alpha\in[0,1]$.
+\end{proposition}
+
+\begin{lemma}[the path is monotone]\label{lem:monotone}
+For $0\le\alpha_1<\alpha_2\le1$ let $w_i$ minimize $\alpha_iF+(1-\alpha_i)G$ over $W$. Then $F(w_2)\le F(w_1)$ and
+$G(w_2)\ge G(w_1)$.
+\end{lemma}
+
+The proof of Proposition~\ref{prop:pareto} uses only that $W$ is convex and that $F$ and $G$ are convex on it, so the
+same holds for any convex class of predictors, for instance the functions of norm at most $r$ in a reproducing kernel
+Hilbert space; kernel ridge regression with the entry weights $(1-\alpha)+\alpha g/\bar g$ is the penalized form of
+that problem.
+
+\section{Discussion}\label{sec:discussion}
 
 The retrieval error of an emulator is the forward error seen through a change of measure that favors small
 transmissions, and a table with entries deep in absorption bands makes the two rankings disagree. Fitting on the
@@ -1089,6 +1048,108 @@ with the digests of its inputs, the scripts that produce every table and figure 
 manuscript. The EMIT table is the lookup table of \cite{shmalo2}, supplied by the Jet Propulsion Laboratory and available
 from the author on request, subject to the permission of the Jet Propulsion Laboratory. The libRadtran table and the
 benchmark of Section~\ref{sec:pkan} are built from the public release accompanying \cite{pkan}.\par}
+
+\appendix
+
+\section{Proofs}\label{app:proofs}
+
+\subsection{The retrieval error of an emulator}
+
+\begin{proof}[Proof of Lemma~\ref{lem:exact}]
+Let $u=L-a=\rho t/q$ and $D=t+su=t/q$, so that $\rho=u/D$. The predicted denominator is
+$\hat D=\hat t+\hat s(u-e_a)=D+e_t+u\,e_s-s\,e_a-e_ae_s$, and
+\[
+\hat\rho-\rho=\frac{u-e_a}{\hat D}-\frac{u}{D}=\frac{-e_aD-u(e_t+u\,e_s-s\,e_a)+u\,e_ae_s}{D\hat D}.
+\]
+Since $D-su=t$, the numerator equals $-t\,e_a-u\,e_t-u^2e_s+u\,e_ae_s$. Divide numerator and denominator by
+$D^2=t^2/q^2$ and use $u/D=\rho$, $uq^2/t^2=\rho q/t$ and $\hat D/D=1+\delta$.
+\end{proof}
+
+\begin{proof}[Proof of Corollary~\ref{cor:first}]
+The first statement is Lemma~\ref{lem:exact} with $|\delta|=O(|e|/t)$. For the second, the forward error is
+$\hat L(\rho)-L(\rho)=e_a+\rho e_t/q+\rho^2 t e_s/q^2+O(|e|^2)$, and multiplying by $-q^2/t$ gives $\ell$.
+\end{proof}
+
+\begin{proof}[Proof of Proposition~\ref{prop:rank}]
+A point mass gives $M=v_\rho v_\rho^\top$. In general $x^\top Mx=\int(v_\rho^\top x)^2\,\nu(d\rho)$, and
+$v_\rho^\top x=p_x(\rho)$ with $p_x(\rho)=x_1(1-2s\rho+s^2\rho^2)/t+x_2(\rho-s\rho^2)/t+x_3\rho^2$, a polynomial of
+degree at most two. Its coefficients in the basis $(1,\rho,\rho^2)$ are $(x_1/t,\,(x_2-2sx_1)/t,\,(s^2x_1-sx_2)/t+x_3)$,
+a triangular invertible map of $x$, so $p_x\equiv0$ only for $x=0$. A nonzero polynomial of degree at most two
+vanishes at no more than two points, hence $x^\top Mx>0$ for $x\neq0$ once $\nu$ charges three.
+\end{proof}
+
+A comparison with the exact inverse on $10^5$ random states, with component errors of the order of the components
+themselves, reproduces Lemma~\ref{lem:exact} to within $1.5\times10^{-12}$.
+
+\subsection{The change of measure}
+
+\begin{proof}[Proof of Proposition~\ref{prop:measure}]
+The first identity is $r_f^2=g\,d_f^2$ integrated against $p$. The second statement follows from
+$\E_p[g\Delta]=\E_p[g]\E_p[\Delta]+\mathrm{Cov}_p(g,\Delta)$.
+\end{proof}
+
+\subsection{What a fit for the retrieval guarantees and what it costs}
+
+\begin{proof}[Proof of Proposition~\ref{prop:weighted-rate}]
+For every $\tau>0$ the pointwise bound gives $\E_p|\bar\rho-\rho|^2\le R^2\Prob_p(t\le\tau)+\E_p[t^{-2}e_R^2\1\{t>\tau\}]
+\le R^2\Prob_p(t\le\tau)+\tau^{2\alpha-2}\varepsilon^2$, since $t^{-2}\le t^{-2\alpha}\tau^{2\alpha-2}$ on $\{t>\tau\}$.
+At $\alpha=1$ let $\tau\to0$ and use $t>0$. Otherwise take $\tau=\varepsilon^{2/(\beta+2-2\alpha)}\le u_0$; then
+$\tau^\beta$ and $\tau^{2\alpha-2}\varepsilon^2$ both equal $\varepsilon^{2\beta/(\beta+2-2\alpha)}$.
+\end{proof}
+
+\begin{proof}[Proof of Proposition~\ref{prop:weighted-attained}]
+With $s=0$ the radiance is $L=r_0t$, and the retrieval gives $(L-\hat a)/\hat t=r_0-c\,\1\{t\le\tau\}$, which lies in
+$[0,R]$. The only error is $e_a$, hence $e_R=c\,t\,\1\{t\le\tau\}$ and
+$\E_p[t^{-2\alpha}e_R^2]=c^2\int_0^\tau u^{2-2\alpha}\beta u^{\beta-1}\,du$. Solving for $\tau$ and substituting into
+$c^2\tau^\beta$ gives the second identity.
+\end{proof}
+
+\begin{proof}[Proof of Proposition~\ref{prop:neff}]
+Integrating by parts, $\E_p[t^{-k}\1\{t>\tau\}]=-\tau^{-k}F(\tau)+k\int_\tau^\infty u^{-k-1}F(u)\,du$ for $k=2,4$. As
+$\tau\to0$ the integral over $[u_0,\infty)$ stays bounded, while over $(\tau,u_0)$ it is
+$\frac{A}{k-\beta}\tau^{\beta-k}(1+o(1))$ times $k$, which diverges because $\beta<2\le k$. Hence
+$\E_p[v_\tau]\sim A\frac{\beta}{2-\beta}\tau^{\beta-2}$ and $\E_p[v_\tau^2]\sim A\frac{\beta}{4-\beta}\tau^{\beta-4}$, and
+adding $\tau^{-2}F(\tau)$ and $\tau^{-4}F(\tau)$ gives $\E_p[w_\tau]\sim A\frac{2}{2-\beta}\tau^{\beta-2}$ and
+$\E_p[w_\tau^2]\sim A\frac{4}{4-\beta}\tau^{\beta-4}$.
+\end{proof}
+
+\begin{proof}[Proof of Corollary~\ref{cor:below}]
+The numerator is $\tau^{-2}F(\tau)\sim A\tau^{\beta-2}$ and the denominator is $A\frac{2}{2-\beta}\tau^{\beta-2}(1+o(1))$
+by the proof of Proposition~\ref{prop:neff}.
+\end{proof}
+
+\begin{proof}[Proof of Corollary~\ref{cor:neff-rate}]
+For both fits $\E_p|\bar\rho-\rho|^2\le R^2F(\tau)+\E_p[t^{-2}e_R^2\1\{t>\tau\}]$. For the plain fit the second term is
+at most $\tau^{-2}Cn^{-\gamma}$, and $\tau=n^{-\gamma/(2+\beta)}$ balances it against $R^2F(\tau)\sim R^2A\tau^\beta$.
+For the weighted fit $t^{-2}\1\{t>\tau\}\le w_\tau$, so the second term is at most $\E_p[w_\tau]\,Cn_{\rm eff}^{-\gamma}$,
+which by Proposition~\ref{prop:neff} is of order $\tau^{\beta-2}(n\tau^\beta)^{-\gamma}$; $\tau=n^{-\gamma/(2+\beta\gamma)}$
+balances it.
+\end{proof}
+
+\subsection{Choosing on the retrieval error}
+
+\begin{proof}[Proof of Proposition~\ref{prop:select}]
+The state loss $X_k=\sum_bv_b\ell_{k,b}$ lies in $[0,L\omega_{\max}]$ and has
+$\operatorname{Var}X_k\le\E X_k^2\le L^2\E[\omega^2]=L^2\E[\omega]^2m/m_{\rm eff}$. With $x=\log(2K/\delta)$, Bernstein's
+inequality gives $|\hat R_k-R_k|\le\varepsilon$ with $\varepsilon=\sqrt{2x\operatorname{Var}X_k/m}+2L\omega_{\max}x/(3m)$
+except on an event of probability at most $\delta/K$, and a union bound over $k$ makes this hold for every $k$ with
+probability at least $1-\delta$. Then $R_{\hat k}\le\hat R_{\hat k}+\varepsilon\le\hat R_{k^\ast}+\varepsilon\le
+R_{k^\ast}+2\varepsilon$ for the best candidate $k^\ast$, and $2\varepsilon$ is at most the stated bound.
+\end{proof}
+
+\begin{proof}[Proof of Proposition~\ref{prop:pareto}]
+The set $S=\{(F(w),G(w))+u:\ w\in W,\ u\in[0,\infty)^2\}$ is convex, since $F$ and $G$ are convex and $W$ is convex.
+Weak optimality says that $(F(w^\ast),G(w^\ast))-(0,\infty)^2$ does not meet $S$, so the point lies on the boundary of $S$,
+and a supporting line gives $\lambda\neq0$ with $\lambda\cdot s\ge\lambda\cdot(F(w^\ast),G(w^\ast))$ for all $s\in S$.
+Since $S$ is closed upward, $\lambda\ge0$; normalize $\lambda$ to $(\alpha,1-\alpha)$.
+\end{proof}
+
+\begin{proof}[Proof of Lemma~\ref{lem:monotone}]
+Write $x=F(w_1)-F(w_2)$ and $y=G(w_2)-G(w_1)$. Optimality of $w_1$ and of $w_2$ gives $\alpha_1x\le(1-\alpha_1)y$ and
+$(1-\alpha_2)y\le\alpha_2x$. Multiplying the first by $1-\alpha_2$ and the second by $1-\alpha_1$ and chaining,
+$(1-\alpha_2)\alpha_1x\le(1-\alpha_1)\alpha_2x$, that is $(\alpha_2-\alpha_1)x\ge0$, so $x\ge0$. Then the first
+inequality gives $(1-\alpha_1)y\ge\alpha_1x\ge0$, so $y\ge0$.
+\end{proof}
 
 \input{references}
 

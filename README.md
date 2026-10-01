@@ -41,7 +41,7 @@ from 0.0086 to 0.0062, on every one of five seeds.
 Test scores on the release's split. The first two rows are from Table 3 of the release; the network rows are means over
 ten seeds. The retrieval columns need an emulator's predictions on every test state and are given for the networks
 only: the mean relative error of the top-of-atmosphere reflectance, and the 95th percentile over all bands of the error
-of the surface reflectance retrieved at ρ = 0.7. Section 8.2 of the paper has the full table, with every baseline of the
+of the surface reflectance retrieved at ρ = 0.7. Section 5.4 of the paper has the full table, with every baseline of the
 release, the error of each coefficient and the out-of-distribution split.
 
 ## Layout
@@ -56,8 +56,8 @@ release, the error of each coefficient and the out-of-distribution split.
   out-of-distribution split, three for each ablation, three of a wider network and one of the wider network on the
   out-of-distribution split, written by `code/p3_pkan2.py`.
   `results/pkan/` holds the values the release publishes in its Table 3 and five seeds of a smaller network (four hidden
-  layers of 384 units, 80 epochs) written by `code/p3_pkan.py`. The `driver_sha256` of the `results/pkan2/` records is
-  that of the driver as it ran; the published `code/p3_pkan2.py` differs from it only in its docstring.
+  layers of 384 units, 80 epochs) written by `code/p3_pkan.py`. The `driver_sha256` of a record is that of the driver
+  as it ran; the published drivers differ from those in their docstrings and local paths, so their digests differ.
 - `figures/`: the figures of the paper.
 - `data/README.md`: where the two tables come from.
 

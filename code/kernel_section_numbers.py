@@ -1,4 +1,4 @@
-"""Every number that Section 7.3 (Kernel parameters chosen on the retrieval error) quotes, from the lane records.
+"""Every number that Section 5.7 (Kernel parameters chosen on the retrieval error) quotes, from the lane records.
 
 Reads p3_krr_select.py records (the Kaggle lanes p3ks on the table as provided, p3kc without the two failed
 evaluations) and prints, over the splits whose validation block holds no failed evaluation (split 105 is left out of
@@ -7,7 +7,7 @@ choice and of each retrieval choice, the per-split differences and the number of
 and the median share of the input weight of each input under the forward and the cut choice at u=1e-2 (input-scaled
 kernel).
 
-With --networks DIR (the clean-table network records of Section 7.1, p3_weight_family.py with --drop-rows), it also
+With --networks DIR (the clean-table network records of Section 5.3, p3_weight_family.py with --drop-rows), it also
 pairs the input-scaled kernel chosen on the cut criterion at u=1e-2 with the plain network and the network floored at
 u=1e-1, split by split: mean radiance error and tail above 1e-3 T_train, splits on which the kernel is lower, and the
 median ratio of the tails.

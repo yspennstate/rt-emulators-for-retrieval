@@ -1,14 +1,14 @@
-"""Tables of the networks on the published libRadtran benchmark (paper, Section 6.2) from the records in results/pkan2.
+"""Tables of the networks on the published libRadtran benchmark (paper, Section 5.4) from the records in results/pkan2.
 
 Reads results/pkan2/p3pk2_<family>_s<seed>.json (one record per run, written by p3_pkan2.py) and the values the release
 publishes in its Table 3 (results/pkan/published_table3.json), and writes
 
     paper/table_pkan.tex       the release's split, ten seeds: forward scores in the release's metric formulas and the
-                               retrieval scores of Section 5, with the release's seven published models and 6S as emulator
+                               retrieval scores of Section 4, with the release's seven published models and 6S as emulator
     paper/table_pkan_ood.tex   the out-of-distribution split, five seeds
     paper/table_pkan_abl.tex   the ablations in the exponent, the floor and the mixture (three seeds) and the wider network
 
-as mean and standard deviation over the seeds. It also prints every number quoted in the text of Section 6.2: paired
+as mean and standard deviation over the seeds. It also prints every number quoted in the text of Section 5.4: paired
 counts against the plain network, ratios to pKANrtm, the epochs at which each arm was kept, and the effect of the kernel
 correction of the residuals.
 
