@@ -7,8 +7,8 @@ states 4011 and 7439: from about 1030 nm on, both fluxes are exactly zero in 197
 albedo is exactly 2 in 107.
 
 The second paper's training-target experiment selects training rows by a named policy (`emit_target_quality.py`) and
-leaves the validation and test blocks unchanged. The two files here add one policy to a copy of that repository on the
-Caltech machine (`~/p23/tq_repo_dropfailed`) and nothing else:
+leaves the validation and test blocks unchanged. The two files here add one policy to a copy of that repository
+(`~/p23/tq_repo_dropfailed` on the machine that ran it) and nothing else:
 
 - `emit_target_quality.py`: policy `drop-failed` removes the training rows whose flux `Y2 + Y3` is exactly zero in more
   than half of the bands. On the ten splits this removes exactly the failed states that fall in the training block

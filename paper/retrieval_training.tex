@@ -13,8 +13,6 @@
 \newcommand{\E}{\mathbb{E}}
 \newcommand{\Prob}{\mathbb{P}}
 \newcommand{\1}{\mathbf{1}}
-\newcommand{\pending}[1]{\par\medskip\noindent\fbox{\parbox{\dimexpr\linewidth-2\fboxsep-2\fboxrule}{\small\sffamily
-Draft, results pending: #1}}\par\medskip}
 \hypersetup{pdftitle={Fitting and choosing radiative-transfer emulators for the retrieval},pdfauthor={Yitzchak Shmalo}}
 
 \title{Fitting and choosing radiative-transfer emulators for the retrieval}
@@ -33,8 +31,9 @@ the retrieval error is regression under a known, unbounded covariate shift whose
 computed before any training. On the EMIT table, networks trained on the square root of the retrieval weights floored
 at a hundredth of the median transmission lower the radiance error by $8\%$ and the 95th percentiles of the retrieval
 error by $32$ to $44\%$ on every one of ten splits. On the libRadtran benchmark of Mazid and Rishe the same weights
-lower the radiance error from $0.81\%$ to $0.17\%$ and the retrieval tail from $3.2$ to $0.5$ points on every seed, at
-a larger error in the spherical albedo. Two failed evaluations of the code in the EMIT table make every weighted network
+lower the radiance error from $0.91\%$ to $0.11\%$ and the retrieval tail from $4.6$ to $0.35$ points on every one of ten
+seeds, at a larger error in the spherical albedo, and on states beyond the training range of aerosol and water vapour
+they lower the root-mean-square error as well. Two failed evaluations of the code in the EMIT table make every weighted network
 worse than the plain one, and refitting a convex stack on the retrieval error lowers its tail by a quarter.
 \end{abstract}
 
@@ -92,10 +91,11 @@ on held-out states than the plain one, on nearly every split even on the weighte
 weights fall on one band of thirteen, no floor improves on the plain network in both the radiance error and the tails,
 and the same rule picks one that is worse in the radiance error and in the physical tails. On the published benchmark
 of \cite{pkan}, the same corpus split by its release into $35{,}000$ training states, with the 6S coefficients as an
-input and the band as one, the flattened and floored weights lower the radiance error by factors of $3.6$ to $4.8$ and
-every retrieval tail by factors of $5.3$ to $6.7$ on every seed; in the release's own metrics they cut the mean absolute
-error to $0.37$ to $0.45$ of its best model's and raise the root-mean-square error by about a quarter, all of it from
-the spherical albedo (Section~\ref{sec:pkan}).
+input and the band as one, the flattened and floored weights lower the radiance error by factors of $8.5$ and $6.9$ and
+every retrieval tail by factors of $10$ to $13$ on every one of ten seeds; in the release's own metrics they cut the mean
+absolute error to $0.27$ and $0.33$ of its best model's and raise the root-mean-square error by a quarter, all of it from
+the spherical albedo. On states above the training range of the aerosol optical depth or the water-vapour column the
+same weights lower the root-mean-square error too, by $28$ and $30\%$ on every seed (Section~\ref{sec:pkan}).
 
 Choosing a few numbers on the retrieval error is a different matter. The price of choosing among $K$ candidates on a
 weighted criterion is set by the effective number of states rather than of entries (Proposition~\ref{prop:select}),
@@ -598,11 +598,20 @@ and one band, the rest removed by its quality control, and we fit and score on t
 and $91{,}471$. Each row is fitted separately and the band enters through the
 inputs: eight state and band variables and the one-hot aerosol model and atmosphere profile, to which we add the 6S
 coefficients of the same row, and the network predicts the libRadtran coefficients minus the 6S ones, the residual form
-of the release's best models. The networks have four hidden layers of $384$ SiLU units \cite{silu} and three outputs,
-are trained with Adam \cite{adam} and a one-cycle schedule \cite{onecycle} for $80$ epochs at batch size $1{,}024$, and
-are kept at the epoch with the lowest validation value of their own objective. The weighted arms use the weights of
+of the release's best models. The networks have five hidden layers of $512$ SiLU units \cite{silu} and three outputs,
+are trained with Adam \cite{adam} and a one-cycle schedule \cite{onecycle} with a peak learning rate of $2\cdot10^{-3}$
+for $300$ epochs at batch size $2{,}048$, and are kept at the epoch with the lowest validation value of their own
+objective. The weighted arms use the weights of
 $J_u$ row by row at the true transmission, $\max\{t,\tau\}^{-2}$, $R^2\max\{t,\tau\}^{-2}$ and $R^4t^2\max\{t,\tau\}^{-2}$
-for the three coefficients with $\tau=uT_{\rm train}$, each normalized to mean one on the training rows. The forward
+for the three coefficients with $\tau=uT_{\rm train}$, each normalized to mean one on the training rows. Two variants
+locate the effect of the weights: the flattened weights with the spherical albedo left unweighted, and mixtures
+$\lambda+(1-\lambda)w$ of the flattened weights $w$ with the plain objective, normalized in the same way. A kernel
+correction fits each network's residuals by Nystr\"om kernel ridge regression \cite{nystrom} with the network's own row
+weights, on $4{,}096$ landmarks with a Gaussian kernel on the standardized inputs, its bandwidth and ridge chosen on the
+validation value of the network's objective, and no correction where none improves it. Besides the release's split we
+use the out-of-distribution split of \cite{shmalo2}: the test block holds the $13{,}847$ states above the $0.85$
+quantile of the aerosol optical depth or of the water-vapour column, and the other $36{,}153$ states are divided by the
+seed into $30{,}730$ fitting and $5{,}423$ validation states. The forward
 scores are the release's: the root-mean-square, mean absolute and symmetric mean absolute percentage errors over the
 three coefficients of every test row, and $R^2$ averaged over the coefficients. The retrieval scores are those below,
 with the top-of-atmosphere reflectance $a+\rho t/(1-\rho s)$ in the role of the radiance.
@@ -807,21 +816,21 @@ tail rises by $34$ points.
 
 \subsection{The published libRadtran benchmark}\label{sec:pkan}
 
-On the benchmark of \cite{pkan} (Section~\ref{sec:data}) the plain network stands near the release's models in their
-own metrics (Table~\ref{tab:pkan}). Its RMSE over five seeds, $0.00669$, lies between that of pKANrtm, $0.00619$, and
-that of sRTMnet \cite{brodrick} as trained in the release, $0.00691$, and below those of the release's five other
-baselines, $0.00784$ to $0.01394$; a residual network tuned for this split in \cite{shmalo2} reaches $0.00581$.
+On the benchmark of \cite{pkan} (Section~\ref{sec:data}) the plain network stands among the release's models in their
+own metrics (Table~\ref{tab:pkan}). Its RMSE over ten seeds, $0.00711$, lies between that of sRTMnet \cite{brodrick} as
+trained in the release, $0.00691$, and that of the release's third model, $0.00784$; pKANrtm reaches $0.00619$, and a
+residual network tuned for this split in \cite{shmalo2} reaches $0.00581$.
 
-The two weighted networks trade one of the release's metrics against the others, on each of the five seeds. The
+The floored and flattened weights trade one of the release's metrics against the others, on each of the ten seeds. The
 floored weights at $u=10^{-1}$ and the flattened weights with $\kappa=1/2$ at $u=10^{-2}$ lower the mean absolute error
-to $0.00083$ and $0.00069$, $0.45$ and $0.37$ of pKANrtm's and below every model of the release, and the symmetric
-percentage error to $2.13\%$ and $1.96\%$, against $3.91\%$ for pKANrtm and $4.13\%$ for the plain network. They raise
-the RMSE to $0.00785$ and $0.00792$, $1.27$ and $1.28$ times pKANrtm's and about that of the release's third model, and
+to $0.00061$ and $0.00051$, $0.33$ and $0.27$ of pKANrtm's and below every model of the release, and the symmetric
+percentage error to $1.85\%$ and $1.52\%$, against $3.91\%$ for pKANrtm and $4.30\%$ for the plain network. They raise
+the RMSE to $0.00772$ and $0.00780$, $1.25$ and $1.26$ times pKANrtm's and about that of the release's third model, and
 lower $R^2$, which averages over the three coefficients, to $0.990$, above only the release's weakest baseline. The RMSE
-pools the three coefficients, and the spherical albedo sets it: the albedo's error rises from $0.0094$ to $0.0134$ and
-$0.0136$, while the errors of the path reflectance and of the transmittance fall by factors of $2.4$ and $2.7$ and of
-$3.1$ and $3.9$. The albedo's retrieval weight vanishes with the transmission, as on the EMIT table
-(Section~\ref{sec:networks}), and a single network with three outputs gives the capacity the other two weights ask for.
+pools the three coefficients, and the spherical albedo sets it: the albedo's error rises from $0.0097$ to $0.0133$ and $0.0134$, while the errors of the path
+reflectance and of the transmittance fall by factors of $3.3$ and $3.6$ and of $5.1$ and $5.7$. The albedo's retrieval
+weight vanishes with the transmission, as on the EMIT table (Section~\ref{sec:networks}), and a single network with
+three outputs gives the capacity the other two weights ask for.
 
 \begin{table}[t]
 \centering\footnotesize\setlength{\tabcolsep}{3pt}
@@ -831,30 +840,82 @@ release's metrics over the three coefficients of every test row, and the RMSE of
 are the values published in Table~3 of the release for its model and its six baselines. Lower block, the
 retrieval scores at $\rho=0.7$: the mean relative error of the top-of-atmosphere reflectance over the bands of a state,
 the 95th percentiles of $|\hat\rho-\rho|$ in points over all rows and on the physical domain above $fT_{\rm train}$, and
-the share of failed inversions above $10^{-3}T_{\rm train}$. Mean $\pm$ standard deviation over five seeds; 6S as the
+the share of failed inversions above $10^{-3}T_{\rm train}$. Mean $\pm$ standard deviation over ten seeds; 6S as the
 emulator is the release's low-fidelity code scored as it stands.}\label{tab:pkan}
 \end{table}
 
 In the retrieval the weighted networks are better by a wide margin, again on every seed. The flattened network lowers
-the radiance error from $0.81\%$ to $0.17\%$, the all-band 95th percentile from $3.21$ to $0.48$ points, the tails on the
-physical domain from $2.67$, $2.38$ and $2.31$ to $0.44$, $0.41$ and $0.40$ points, and the share of failed inversions
-above $10^{-3}T_{\rm train}$ from $0.097\%$ to $0.0002\%$; the floored network at $u=10^{-1}$ does nearly as well. 6S
-scored as the emulator has a radiance error of $20.6\%$ and a tail of $75$ points, so the networks learn a correction of
-it about two orders of magnitude smaller.
+the radiance error from $0.913\%$ to $0.108\%$, the all-band 95th percentile from $4.63$ to $0.35$ points, the tails on
+the physical domain from $3.59$, $3.15$ and $3.06$ to $0.32$, $0.29$ and $0.28$ points, and the share of failed
+inversions above $10^{-3}T_{\rm train}$ from $0.146\%$ to zero on every seed; the floored network at $u=10^{-1}$ does
+nearly as well. 6S scored as the emulator has a radiance error of $20.6\%$ and a tail of $76$ points, so the networks
+learn a correction of it about two orders of magnitude smaller.
+
+The two variants show where the gain comes from. With the spherical albedo left unweighted and the other two
+coefficients flattened, the network keeps the plain network's albedo and loses the rest: its radiance error,
+$1.14\%$, is above the plain network's on nine seeds of ten, and so are its errors in the path reflectance and the
+transmittance. The stopping rule takes the epoch with the lowest validation value of the summed objective, and with the
+albedo unweighted that epoch falls where the plain network's does, between $23$ and $39$ on nine seeds, long before the
+weighted path reflectance and transmittance are fitted; the flattened network is kept at epochs $289$ to $297$. A
+mixture that keeps three tenths of the plain objective improves on the plain network in the RMSE, the mean absolute and
+percentage errors, the radiance error and every tail, on every seed. Its RMSE, $0.00630$, is within $2\%$ of pKANrtm's,
+at a radiance error of $0.550\%$ and an all-band tail of $2.28$ points.
+
+The kernel correction of the residuals helps where a network leaves structure in them. It lowers the plain network's
+RMSE from $0.00711$ to $0.00684$ and its radiance error by $0.09$ percentage points, on every seed, and with the mixture
+it brings the RMSE to $0.00623$, below pKANrtm's on four seeds of ten. For the floored and flattened networks the
+corrections it finds on their weighted validation objectives are too small to change any score in Table~\ref{tab:pkan}.
+
+\begin{table}[t]
+\centering\footnotesize\setlength{\tabcolsep}{3pt}
+\resizebox{\textwidth}{!}{\input{table_pkan_ood}}
+\caption{The out-of-distribution split of the benchmark: the test block holds the $13{,}847$ states above the $0.85$
+quantile of the aerosol optical depth or of the water-vapour column. The scores are those of Table~\ref{tab:pkan}. Mean
+$\pm$ standard deviation over five seeds, which change the fitting and validation states and the initialization; the
+test block is the same for all five.}\label{tab:pkanood}
+\end{table}
+
+Outside the training range the weighted networks gain in every forward score but the albedo's
+(Table~\ref{tab:pkanood}). On the split whose test states lie above the $0.85$ quantile of the aerosol optical depth or
+of the water-vapour column, the flattened and floored weights lower the RMSE from $0.00860$ to $0.00615$ and
+$0.00605$, the mean absolute error from $0.00381$ to $0.00085$ and $0.00101$, the radiance error from $1.59\%$ to
+$0.25\%$ and $0.30\%$, and the retrieval tails by factors of $7.4$ to $8.4$, each on every one of five seeds. The
+albedo's error rises from $0.0081$ to $0.0103$ and $0.0099$, and with it $R^2$ falls slightly. The release reports an
+RMSE of $0.01022$ for pKANrtm on an out-of-distribution split of its own, which differs from this one, so the two are
+not compared.
+
+\begin{table}[t]
+\centering\footnotesize\setlength{\tabcolsep}{3pt}
+\resizebox{\textwidth}{!}{\input{table_pkan_abl}}
+\caption{Ablations on the release's split, three seeds each: the exponent $\kappa$ and the floor $u$ of the flattened
+weights, the albedo left unweighted, the share of the plain objective in the mixture, and, in the last block, a wider
+network of six hidden layers of $1{,}024$ units trained for $400$ epochs. The scores are those of Table~\ref{tab:pkan};
+the sixth column is the RMSE of the spherical albedo $S$. Mean $\pm$ standard deviation over the seeds.}\label{tab:pkanabl}
+\end{table}
+
+The exponent matters more than the floor (Table~\ref{tab:pkanabl}, three seeds each). At $\kappa=1/2$ the floors
+$u=10^{-3}$ and $10^{-1}$ give RMSEs of $0.00785$ and $0.00780$, against $0.00780$ at $10^{-2}$, and radiance errors of
+$0.162\%$ and $0.098\%$. A flatter exponent keeps more of the albedo's weight on the states with small transmission. At
+$\kappa=1/4$ the albedo's error, $0.0093$, is slightly below the plain network's, the radiance error, $0.108\%$, is
+that of $\kappa=1/2$, and the RMSE, $0.00500$, $0.00520$ and $0.00617$ on the three seeds, is below pKANrtm's on each;
+the mean absolute and percentage errors are $3.8$ and $2.7$ times lower than pKANrtm's, and $R^2$ is higher than
+pKANrtm's on two seeds of three. Keeping a tenth of the plain objective gives RMSEs of $0.00579$, $0.00591$ and
+$0.00605$, also below pKANrtm's on every seed, at a radiance error of $0.235\%$. Neither the exponent nor the mixture was
+chosen on validation data here, and three seeds do not settle a comparison this close. A wider and deeper network does
+not help: the plain network's RMSE rises to $0.00846$, its validation objective is lowest at epochs $13$ to $17$, and
+the mixture reaches $0.00641$. On the out-of-distribution split the same network, run on one seed, behaves otherwise.
+Fitted without weights it is kept at epoch $299$ of $400$ and reaches an RMSE of $0.00555$, below the weighted networks
+of Table~\ref{tab:pkanood}, at a radiance error of $0.49\%$ and an all-band tail of $2.19$ points, still well above
+theirs; its mixture reaches $0.00551$.
+
+The weighted networks were still improving when training stopped: their lowest validation objective came at epochs
+$288$ to $299$ of $300$ on every seed and on both splits, against epochs $20$ to $41$ for the plain network.
 
 The result differs from that on the libRadtran table of Section~\ref{sec:data}, where no floor improved on the plain
 network in both the radiance error and the tails. The two settings differ in three ways at once: the benchmark trains
 on four and a half times as many states, its networks see the 6S coefficients and fit their residual, and they see one
 band of a state at a time, with the band among the inputs, where the networks of the table predict all bands of a state
-at once. The weighted networks were also still improving when training stopped: their lowest validation objective came
-at epochs $78$ and $79$ of $80$ on every seed, against epochs $16$ to $28$ for the plain network.
-
-\pending{a second set of runs on this benchmark, ten seeds at $300$ epochs with five hidden layers of $512$ units, adds
-the flattened weights with the albedo left unweighted, a mixture with the plain objective, a kernel correction of each
-network's residuals fitted on the same weights, an out-of-distribution split that tests on the states above the $0.85$
-quantile of the aerosol optical depth or of the water-vapour column, as in \cite{shmalo2} (the release reports an RMSE
-of $0.01022$ for pKANrtm on its own split of this kind), and ablations in $\kappa$ and $u$. Its results will replace the
-last paragraph.}
+at once.
 
 \subsection{Kernel regression fitted on the retrieval error}\label{sec:kernelfit}
 
@@ -981,7 +1042,10 @@ square root of the weights floored at a hundredth keeps the order of the small t
 erases and removes most of their range, and the network trained on it improves on the plain one in the radiance error
 and in every tail, on every split; the albedo, whose retrieval weight vanishes with the transmission below the floor,
 is the one component it fits less well. Kernel ridge regression on the floored weights moves as the networks do, so what is
-learned here concerns the weights and not the model class.
+learned here concerns the weights and not the model class. On the published benchmark the weights carry over: the
+retrieval gains hold on every seed, on states beyond the training range of aerosol and water vapour the weighted
+networks also have the lower root-mean-square error, and in an ablation over three seeds a flatter exponent kept the
+albedo's accuracy with the same retrieval gain.
 The floor is therefore a parameter to be chosen on held-out states, and the lowest floor a fit can afford is set by
 the effective sample size of its weights rather than by the floor at which the retrieval is scored. A floored weight
 also magnifies whatever lies below the floor. Two failed evaluations of the code, two states in twenty-three thousand,
@@ -1019,11 +1083,12 @@ reviewed the results, the proofs and the text.
 
 \section*{Data and code availability}
 
+{\sloppy
 The repository \url{https://github.com/yspennstate/rt-emulators-for-retrieval} holds the code, one JSON record per run
 with the digests of its inputs, the scripts that produce every table and figure from those records, and this
 manuscript. The EMIT table is the lookup table of \cite{shmalo2}, supplied by the Jet Propulsion Laboratory and available
 from the author on request, subject to the permission of the Jet Propulsion Laboratory. The libRadtran table and the
-benchmark of Section~\ref{sec:pkan} are built from the public release accompanying \cite{pkan}.
+benchmark of Section~\ref{sec:pkan} are built from the public release accompanying \cite{pkan}.\par}
 
 \input{references}
 

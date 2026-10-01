@@ -1,11 +1,18 @@
-"""Table of the networks on the published libRadtran benchmark (paper, Section 6.2) from the records in results/pkan.
+"""Tables of the networks on the published libRadtran benchmark (paper, Section 6.2) from the records in results/pkan2.
 
-Reads results/pkan/p3pk_s*.json (one record per seed, written by p3_pkan.py) and writes paper/table_pkan.tex: the
-forward scores in the release's metric formulas and the retrieval scores of Section 5, mean and standard deviation over
-the seeds, with the published values of the release's two best models and 6S used as the emulator. Prints the paired
-counts quoted in the text.
+Reads results/pkan2/p3pk2_<family>_s<seed>.json (one record per run, written by p3_pkan2.py) and the values the release
+publishes in its Table 3 (results/pkan/published_table3.json), and writes
 
-usage: python code/make_pkan_table.py [--records results/pkan] [--out paper/table_pkan.tex]
+    paper/table_pkan.tex       the release's split, ten seeds: forward scores in the release's metric formulas and the
+                               retrieval scores of Section 5, with the release's seven published models and 6S as emulator
+    paper/table_pkan_ood.tex   the out-of-distribution split, five seeds
+    paper/table_pkan_abl.tex   the ablations in the exponent, the floor and the mixture (three seeds) and the wider network
+
+as mean and standard deviation over the seeds. It also prints every number quoted in the text of Section 6.2: paired
+counts against the plain network, ratios to pKANrtm, the epochs at which each arm was kept, and the effect of the kernel
+correction of the residuals.
+
+usage: python code/make_pkan_table.py [--records results/pkan2] [--published results/pkan/published_table3.json]
 """
 import argparse
 import glob
@@ -15,99 +22,200 @@ import os
 import numpy as np
 
 ap = argparse.ArgumentParser()
-ap.add_argument("--records", default="results/pkan")
-ap.add_argument("--out", default="paper/table_pkan.tex")
+ap.add_argument("--records", default="results/pkan2")
+ap.add_argument("--published", default="results/pkan/published_table3.json")
+ap.add_argument("--outdir", default="paper")
 args = ap.parse_args()
 
-recs = [json.load(open(p)) for p in sorted(glob.glob(os.path.join(args.records, "p3pk_s*.json")))]
-assert recs, "no records"
-assert len({r["data_sha256"] for r in recs}) == 1 and len({r["driver_sha256"] for r in recs}) == 1
-print(f"{len(recs)} seeds {[r['seed'] for r in recs]}, epochs {recs[0]['epochs']}, width {recs[0]['width']}, depth "
-      f"{recs[0]['depth']}, rows {recs[0]['rows']}, states {recs[0]['states']}")
 
-ARMS = [("plain", "network, plain"), ("floored@0.1", "network, floored, $u=10^{-1}$"),
-        ("flat0.5@0.01", "network, flattened, $\\kappa=1/2$, $u=10^{-2}$")]
+def load(family):
+    recs = [json.load(open(p, encoding="utf-8"))
+            for p in sorted(glob.glob(os.path.join(args.records, f"p3pk2_{family}_s*.json")))]
+    assert recs, family
+    assert len({r["data_sha256"] for r in recs}) == 1 and len({r["driver_sha256"] for r in recs}) == 1
+    assert len({(r["epochs"], r["width"], r["depth"], r["split"]) for r in recs}) == 1
+    return recs
+
+
+FAM = {k: load(k) for k in ("off", "ood", "abl", "big")}
+for k, recs in FAM.items():
+    r = recs[0]
+    print(f"{k}: {len(recs)} seeds {[x['seed'] for x in recs]}, split {r['split']}, epochs {r['epochs']}, width {r['width']}, "
+          f"depth {r['depth']}, batch {r['bs']}, lr {r['lr']}, rows {r['rows']}, states {r['states']}")
+
+PUB = FAM["off"][0]["published"]
+TABLE3 = json.load(open(args.published, encoding="utf-8"))
+for p in TABLE3["models"]:
+    # the release's values for its two best models must equal those the driver recorded at run time
+    if p["model"] == "pKANrtm":
+        assert abs(p["rmse"] - PUB["pKANrtm_standard_split"]["rmse"]) < 1e-9
+    if p["model"] == "sRTMNet":
+        assert abs(p["rmse"] - PUB["sRTMNet_style_standard_split"]["rmse"]) < 1e-9
+
+NAME = {"plain": "network, plain",
+        "plain+kc": "network, plain, with kernel correction",
+        "floored@0.1": "network, floored, $u=10^{-1}$",
+        "flat0.5@0.01": "network, flattened, $\\kappa=1/2$, $u=10^{-2}$",
+        "flatA0.5@0.01": "network, flattened, albedo unweighted",
+        "mix0.3:flat0.5@0.01": "network, $0.3$ plain $+\\,0.7$ flattened",
+        "mix0.3:flat0.5@0.01+kc": "network, $0.3$ plain $+\\,0.7$ flattened, with kernel correction"}
+MAIN = ["plain", "floored@0.1", "flat0.5@0.01", "flatA0.5@0.01", "mix0.3:flat0.5@0.01"]
 FWD = [("rmse", 5), ("mae", 5), ("r2", 4), ("smape", 2)]
 COMP = ["rho_path", "T_total", "spher_alb"]
 RET = [("radiance", 3), ("allband_p95", 2), ("p95@1e-12", 2), ("p95@0.001", 2), ("p95@0.01", 2), ("failed_pct@0.001", 3)]
 
 
-def arm_vals(r, arm):
-    return r["six_s_baseline"] if arm == "6S" else r["arms"][arm]
+def arm(r, a):
+    return r["six_s_baseline"] if a == "6S" else r["arms"][a]
 
 
-def stat(arm, get):
-    v = np.array([get(arm_vals(r, arm)) for r in recs], float)
-    return v.mean(), (v.std(ddof=1) if len(v) > 1 else 0.0), v
+def vals(recs, a, get):
+    return np.array([get(arm(r, a)) for r in recs], float)
 
 
-def cell(m, s, nd, sd=True):
-    return f"${m:.{nd}f}$" if not sd else f"${m:.{nd}f}\\pm{s:.{nd}f}$"
+def cell(v, nd, sd=True):
+    m = v.mean()
+    if not sd or len(v) == 1:
+        return f"${m:.{nd}f}$"
+    return f"${m:.{nd}f}\\pm{v.std(ddof=1):.{nd}f}$"
 
 
-lines = ["% generated by code/make_pkan_table.py from results/pkan; do not edit by hand",
-         "\\begin{tabular}{@{}lcccccccc@{}}", "\\toprule",
-         " & RMSE & MAE & $R^2$ & SMAPE [\\%] & \\multicolumn{3}{c}{RMSE by coefficient} & \\\\",
-         "\\cmidrule(lr){6-8}",
-         "emulator & & & & & $\\rho_{\\rm path}$ & $T$ & $S$ & \\\\", "\\midrule"]
-pub = recs[0]["published"]
-table3 = json.load(open(os.path.join(args.records, "published_table3.json")))
-for p in table3["models"]:
-    # the release's values for its two best models must equal those the driver recorded at run time
-    if p["model"] == "pKANrtm":
-        assert abs(p["rmse"] - pub["pKANrtm_standard_split"]["rmse"]) < 1e-9
-    if p["model"] == "sRTMNet":
-        assert abs(p["rmse"] - pub["sRTMNet_style_standard_split"]["rmse"]) < 1e-9
-    name = {"pKANrtm": "pKANrtm \\cite{pkan}",
-            "sRTMNet": "sRTMnet \\cite{brodrick}, trained in \\cite{pkan}"}.get(p["model"], p["model"] + " \\cite{pkan}")
-    lines.append(f"{name} & ${p['rmse']:.5f}$ & ${p['mae']:.5f}$ & ${p['r2']:.4f}$ & ${p['smape']:.2f}$ & & & & \\\\")
-lines.append("\\midrule")
-for arm, name in [("6S", "6S as the emulator")] + ARMS:
+def two_block_table(recs, arms, with_published, label_note):
+    lines = [f"% generated by code/make_pkan_table.py from {args.records} ({label_note}); do not edit by hand",
+             "\\begin{tabular}{@{}lcccccccc@{}}", "\\toprule",
+             " & RMSE & MAE & $R^2$ & SMAPE [\\%] & \\multicolumn{3}{c}{RMSE by coefficient} & \\\\",
+             "\\cmidrule(lr){6-8}",
+             "emulator & & & & & $\\rho_{\\rm path}$ & $T$ & $S$ & \\\\", "\\midrule"]
+    if with_published:
+        for p in TABLE3["models"]:
+            name = {"pKANrtm": "pKANrtm \\cite{pkan}",
+                    "sRTMNet": "sRTMnet \\cite{brodrick}, trained in \\cite{pkan}"}.get(p["model"], p["model"] + " \\cite{pkan}")
+            lines.append(f"{name} & ${p['rmse']:.5f}$ & ${p['mae']:.5f}$ & ${p['r2']:.4f}$ & ${p['smape']:.2f}$ & & & & \\\\")
+        lines.append("\\midrule")
+    for a in ["6S"] + arms:
+        row = ["6S as the emulator" if a == "6S" else NAME[a]]
+        for k, nd in FWD:
+            row.append(cell(vals(recs, a, lambda x, k=k: x["pkan_metrics"]["overall"][k]), nd, sd=a != "6S"))
+        for c in COMP:
+            row.append(cell(vals(recs, a, lambda x, c=c: x["pkan_metrics"][c]["rmse"]), 5, sd=a != "6S"))
+        lines.append(" & ".join(row) + " & \\\\")
+    lines += ["\\midrule",
+              " & radiance [\\%] & all bands & phys.\\ $10^{-12}$ & phys.\\ $10^{-3}$ & phys.\\ $10^{-2}$ & failed [\\%] & & \\\\",
+              "\\midrule"]
+    for a in ["6S"] + arms:
+        row = ["6S as the emulator" if a == "6S" else NAME[a]]
+        for k, nd in RET:
+            row.append(cell(vals(recs, a, lambda x, k=k: x["retrieval"][k]), nd, sd=a != "6S"))
+        lines.append(" & ".join(row) + " & & \\\\")
+    lines += ["\\bottomrule", "\\end{tabular}"]
+    return lines
+
+
+def write(name, lines):
+    os.makedirs(args.outdir, exist_ok=True)
+    p = os.path.join(args.outdir, name)
+    open(p, "w", encoding="utf-8").write("\n".join(lines) + "\n")
+    print("wrote", p)
+
+
+write("table_pkan.tex", two_block_table(FAM["off"], MAIN, True, "the release's split, ten seeds"))
+write("table_pkan_ood.tex", two_block_table(FAM["ood"], MAIN, False, "out-of-distribution split, five seeds"))
+
+# ablations: three seeds on the release's split, and the wider network
+ABL = [("abl", "flat0.25@0.01", "flattened, $\\kappa=1/4$, $u=10^{-2}$"),
+       ("abl", "flat0.75@0.01", "flattened, $\\kappa=3/4$, $u=10^{-2}$"),
+       ("abl", "flat0.5@0.001", "flattened, $\\kappa=1/2$, $u=10^{-3}$"),
+       ("abl", "flat0.5@0.1", "flattened, $\\kappa=1/2$, $u=10^{-1}$"),
+       ("abl", "flatA0.25@0.01", "albedo unweighted, $\\kappa=1/4$"),
+       ("abl", "flatA0.75@0.01", "albedo unweighted, $\\kappa=3/4$"),
+       ("abl", "mix0.1:flat0.5@0.01", "$0.1$ plain $+\\,0.9$ flattened"),
+       ("abl", "mix0.5:flat0.5@0.01", "$0.5$ plain $+\\,0.5$ flattened"),
+       ("big", "plain", "wider network, plain"),
+       ("big", "flatA0.5@0.01", "wider network, albedo unweighted"),
+       ("big", "mix0.3:flat0.5@0.01", "wider network, $0.3$ plain $+\\,0.7$ flattened")]
+lines = ["% generated by code/make_pkan_table.py from " + args.records + " (ablations, three seeds); do not edit by hand",
+         "\\begin{tabular}{@{}lccccccc@{}}", "\\toprule",
+         "network & RMSE & MAE & $R^2$ & SMAPE [\\%] & RMSE of $S$ & radiance [\\%] & all bands \\\\", "\\midrule"]
+for fam, a, name in ABL:
+    if fam == "big" and a == "plain":
+        lines.append("\\midrule")
+    recs = FAM[fam]
     row = [name]
     for k, nd in FWD:
-        m, s, _ = stat(arm, lambda a, k=k: a["pkan_metrics"]["overall"][k])
-        row.append(cell(m, s, nd, sd=arm != "6S"))
-    for c in COMP:
-        m, s, _ = stat(arm, lambda a, c=c: a["pkan_metrics"][c]["rmse"])
-        row.append(cell(m, s, 5, sd=arm != "6S"))
-    lines.append(" & ".join(row) + " & \\\\")
-lines += ["\\midrule",
-          " & radiance [\\%] & all bands & phys.\\ $10^{-12}$ & phys.\\ $10^{-3}$ & phys.\\ $10^{-2}$ & failed [\\%] & & \\\\",
-          "\\midrule"]
-for arm, name in [("6S", "6S as the emulator")] + ARMS:
-    row = [name]
-    for k, nd in RET:
-        m, s, _ = stat(arm, lambda a, k=k: a["retrieval"][k])
-        row.append(cell(m, s, nd, sd=arm != "6S"))
-    lines.append(" & ".join(row) + " & & \\\\")
+        row.append(cell(vals(recs, a, lambda x, k=k: x["pkan_metrics"]["overall"][k]), nd))
+    row.append(cell(vals(recs, a, lambda x: x["pkan_metrics"]["spher_alb"]["rmse"]), 5))
+    row.append(cell(vals(recs, a, lambda x: x["retrieval"]["radiance"]), 3))
+    row.append(cell(vals(recs, a, lambda x: x["retrieval"]["allband_p95"]), 2))
+    lines.append(" & ".join(row) + " \\\\")
 lines += ["\\bottomrule", "\\end{tabular}"]
-os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
-open(args.out, "w", encoding="utf-8").write("\n".join(lines) + "\n")
-print("wrote", args.out)
+write("table_pkan_abl.tex", lines)
 
-# paired counts against the plain network, quoted in the text
+# ------------------------------------------------------------------ numbers quoted in the text
+pk = PUB["pKANrtm_standard_split"]
 lower = {"rmse": True, "mae": True, "r2": False, "smape": True}
-for arm, _ in ARMS[1:]:
+
+
+def paired(recs, a, b="plain"):
     out = []
     for k in lower:
-        _, _, a = stat(arm, lambda x, k=k: x["pkan_metrics"]["overall"][k])
-        _, _, p = stat("plain", lambda x, k=k: x["pkan_metrics"]["overall"][k])
-        out.append(f"{k} {int(((a < p) if lower[k] else (a > p)).sum())}")
+        x = vals(recs, a, lambda z, k=k: z["pkan_metrics"]["overall"][k])
+        y = vals(recs, b, lambda z, k=k: z["pkan_metrics"]["overall"][k])
+        out.append(f"{k} {int(((x < y) if lower[k] else (x > y)).sum())}")
     for c in COMP:
-        _, _, a = stat(arm, lambda x, c=c: x["pkan_metrics"][c]["rmse"])
-        _, _, p = stat("plain", lambda x, c=c: x["pkan_metrics"][c]["rmse"])
-        out.append(f"{c} {int((a < p).sum())}")
+        x = vals(recs, a, lambda z, c=c: z["pkan_metrics"][c]["rmse"])
+        y = vals(recs, b, lambda z, c=c: z["pkan_metrics"][c]["rmse"])
+        out.append(f"{c} {int((x < y).sum())}")
     for k, _ in RET:
-        _, _, a = stat(arm, lambda x, k=k: x["retrieval"][k])
-        _, _, p = stat("plain", lambda x, k=k: x["retrieval"][k])
-        out.append(f"{k} {int((a < p).sum())}")
-    print(f"{arm}: seeds better than plain of {len(recs)}: " + ", ".join(out))
-for arm, _ in ARMS:
-    print(arm, "best epochs", [r["arms"][arm]["best_epoch"] for r in recs])
-m_p, _, _ = stat("plain", lambda a: a["retrieval"]["radiance"])
-for arm, _ in ARMS[1:]:
-    m, _, _ = stat(arm, lambda a: a["retrieval"]["radiance"])
-    mae, _, _ = stat(arm, lambda a: a["pkan_metrics"]["overall"]["mae"])
-    rm, _, _ = stat(arm, lambda a: a["pkan_metrics"]["overall"]["rmse"])
-    print(f"{arm}: radiance {m_p:.3f} -> {m:.3f} ({m / m_p:.2f}x); MAE / pKANrtm {mae / pub['pKANrtm_standard_split']['mae']:.2f}; "
-          f"RMSE / pKANrtm {rm / pub['pKANrtm_standard_split']['rmse']:.2f}")
+        x = vals(recs, a, lambda z, k=k: z["retrieval"][k])
+        y = vals(recs, b, lambda z, k=k: z["retrieval"][k])
+        out.append(f"{k} {int((x < y).sum())}")
+    return ", ".join(out)
+
+
+for fam in ("off", "ood"):
+    recs = FAM[fam]
+    print(f"\n[{fam}] seeds better than plain of {len(recs)}:")
+    for a in MAIN[1:]:
+        print(f"  {a}: {paired(recs, a)}")
+    for a in MAIN:
+        print(f"  {a}: best epochs {[r['arms'][a]['best_epoch'] for r in recs]}")
+    m = {a: {k: vals(recs, a, lambda z, k=k: z["pkan_metrics"]["overall"][k]).mean() for k in lower} for a in MAIN}
+    comp = {a: {c: vals(recs, a, lambda z, c=c: z["pkan_metrics"][c]["rmse"]).mean() for c in COMP} for a in MAIN}
+    ret = {a: {k: vals(recs, a, lambda z, k=k: z["retrieval"][k]).mean() for k, _ in RET} for a in MAIN}
+    for a in MAIN:
+        print(f"  {a}: RMSE {m[a]['rmse']:.5f} ({m[a]['rmse'] / pk['rmse']:.2f} x pKANrtm) MAE {m[a]['mae']:.5f} "
+              f"({m[a]['mae'] / pk['mae']:.2f} x) R2 {m[a]['r2']:.4f} SMAPE {m[a]['smape']:.2f} | path {comp[a]['rho_path']:.5f} "
+              f"T {comp[a]['T_total']:.5f} S {comp[a]['spher_alb']:.5f} | radiance {ret[a]['radiance']:.3f} "
+              f"p95 all {ret[a]['allband_p95']:.2f} phys {ret[a]['p95@1e-12']:.2f} {ret[a]['p95@0.001']:.2f} "
+              f"{ret[a]['p95@0.01']:.2f} failed@1e-3 {ret[a]['failed_pct@0.001']:.4f}")
+    for a in MAIN[1:]:
+        print(f"  {a} vs plain: path /{comp['plain']['rho_path'] / comp[a]['rho_path']:.1f}, "
+              f"T /{comp['plain']['T_total'] / comp[a]['T_total']:.1f}, radiance /{ret['plain']['radiance'] / ret[a]['radiance']:.1f}, "
+              f"tails /{min(ret['plain'][k] / ret[a][k] for k in ('allband_p95', 'p95@1e-12', 'p95@0.001', 'p95@0.01')):.1f} "
+              f"to /{max(ret['plain'][k] / ret[a][k] for k in ('allband_p95', 'p95@1e-12', 'p95@0.001', 'p95@0.01')):.1f}")
+    for a in ("plain", "floored@0.1", "flat0.5@0.01", "flatA0.5@0.01", "mix0.3:flat0.5@0.01"):
+        kc = a + "+kc"
+        if kc not in recs[0]["arms"]:
+            continue
+        d_rmse = vals(recs, kc, lambda z: z["pkan_metrics"]["overall"]["rmse"]) - vals(recs, a, lambda z: z["pkan_metrics"]["overall"]["rmse"])
+        d_rad = vals(recs, kc, lambda z: z["retrieval"]["radiance"]) - vals(recs, a, lambda z: z["retrieval"]["radiance"])
+        applied = sum(bool(r["arms"][kc]["kernel"]["applied"]) for r in recs)
+        print(f"  kernel correction on {a}: applied {applied}/{len(recs)}, RMSE change mean {d_rmse.mean():+.6f} "
+              f"(max |.| {np.abs(d_rmse).max():.6f}), radiance change mean {d_rad.mean():+.4f}")
+    mixkc = vals(recs, "mix0.3:flat0.5@0.01+kc", lambda z: z["pkan_metrics"]["overall"]["rmse"])
+    print(f"  mixture+kc RMSE below pKANrtm's {pk['rmse']} on {int((mixkc < pk['rmse']).sum())} of {len(recs)} seeds; "
+          f"mean {mixkc.mean():.5f}")
+    if fam == "off":
+        s6 = recs[0]["six_s_baseline"]
+        print(f"  6S as emulator: RMSE {s6['pkan_metrics']['overall']['rmse']:.5f} radiance {s6['retrieval']['radiance']:.2f} "
+              f"all-band p95 {s6['retrieval']['allband_p95']:.2f}")
+
+print("\n[ablation] per seed:")
+for a in ("flat0.25@0.01", "flat0.75@0.01", "flat0.5@0.001", "flat0.5@0.1", "mix0.1:flat0.5@0.01"):
+    x = [(r["seed"], r["arms"][a]["pkan_metrics"]["overall"]["rmse"], r["arms"][a]["pkan_metrics"]["overall"]["mae"],
+          r["arms"][a]["pkan_metrics"]["overall"]["r2"], r["arms"][a]["pkan_metrics"]["overall"]["smape"],
+          r["arms"][a]["retrieval"]["radiance"], r["arms"][a]["best_epoch"]) for r in FAM["abl"]]
+    print(f"  {a}: " + "; ".join(f"s{s} RMSE {e:.5f} MAE {m:.5f} R2 {q:.5f} SMAPE {sm:.2f} rad {rd:.3f} ep {ep}"
+                                 for s, e, m, q, sm, rd, ep in x))
+print("[ablation] best epochs:", {a: [r["arms"][a]["best_epoch"] for r in FAM["abl"]] for a in FAM["abl"][0]["arms"]})
+print("[wider] best epochs:", {a: [r["arms"][a]["best_epoch"] for r in FAM["big"]] for a in ("plain", "flatA0.5@0.01", "mix0.3:flat0.5@0.01")})
